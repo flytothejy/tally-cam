@@ -1,0 +1,10 @@
+{
+  "road_type": "ex",
+  "bbox": { "minX": 127.05, "maxX": 127.12, "minY": 37.13, "maxY": 37.23 },
+  "keep_history": 24,
+  "cameras": [
+    { "slug": "dongtan-jct", "name": "[경부선] 동탄분기점", "label": "동탄분기점" },
+    { "slug": "giheung",     "name": "[경부선] 기흥",       "label": "기흥" },
+    { "slug": "osan",        "name": "[경부선] 오산",       "label": "오산" }
+  ]
+}
