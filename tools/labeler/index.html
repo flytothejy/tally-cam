@@ -41,6 +41,9 @@
   .frame svg .gate { stroke: rgba(240,167,58,.7); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; fill: none; }
   .frame svg .ring { stroke: #f0a73a; stroke-width: 2; fill: none; vector-effect: non-scaling-stroke; }
   .frame svg .dot { fill: #f0a73a; }
+  .frame svg .other { stroke: #5fbf86; stroke-width: 1.5; fill: none; vector-effect: non-scaling-stroke; }
+  .frame svg .gate.dim { opacity: .45; }
+  #ov { cursor: crosshair; }
   .framebar, .vbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 
@@ -116,11 +119,11 @@
 
   <section class="panel view">
     <div class="pane">
-      <div class="panehead"><h2>영상</h2><span class="note">선택한 점 앞뒤 2초 반복</span></div>
+      <div class="panehead"><h2>영상</h2><span class="note">라벨이 기준선을 지날 때 초록 점이 떠요 · 점 없이 지나가는 차는 기준선을 클릭해 추가</span></div>
       <div class="screen"><video id="vid" muted playsinline preload="auto"></video><canvas id="ov" width="720" height="480"></canvas></div>
       <div class="vbar">
         <button id="play">재생</button>
-        <select id="rate" aria-label="재생 속도"><option value="1">1배속</option><option value="2" selected>2배속</option><option value="3">3배속</option><option value="4">4배속</option></select>
+        <select id="rate" aria-label="재생 속도"><option value="0.5">0.5배속</option><option value="1" selected>1배속</option><option value="2">2배속</option><option value="3">3배속</option><option value="4">4배속</option></select>
         <span class="mono" id="vtime" style="margin-left:auto">0.0 s</span>
       </div>
     </div>
@@ -169,7 +172,8 @@
       <ul class="help">
         <li><b>띠를 훑으면서</b> 틀린 점은 지우고, 빠진 차는 빈 곳을 클릭해 추가하고, 어긋난 점은 끌어서 맞추세요.</li>
         <li>지금 보이는 구간을 다 봤으면 <b>이 구간 검토 완료</b>(<kbd>Enter</kbd>)를 누르세요. 그 구간 라벨이 모두 확인된 것으로 기록되고 띠 위에 초록 선이 생겨요.</li>
-        <li>점을 선택하면 확인 프레임에 그 시각의 장면과 점이 그대로 보여요.</li>
+        <li><b>검수 재생</b>: 영상을 재생하면 라벨이 찍힌 차가 기준선을 지날 때 초록 점이 떠요. 점 없이 지나가는 차가 있으면 <b>영상의 기준선을 클릭</b>해 그 순간에 바로 추가하세요.</li>
+        <li>점을 선택하면 확인 프레임에 그 시각의 장면과 점(근처 다른 라벨은 초록 원)이 보여요.</li>
         <li>키보드: <kbd>←</kbd><kbd>→</kbd> 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
       </ul>
     </div>
@@ -323,7 +327,10 @@
     seekFv(clamp((fr(ev.t) + 0.5) / FPS, 0, DURATION - 0.02), throttled);
     const [px, py] = gatePoint(ev.lane, ev.y), L = LANES[ev.lane];
     $('zoomer').style.transform = `translate(${-ZOOM_K * (px / W - 0.5) * 100}%, ${-ZOOM_K * (py / H - 0.5) * 100}%) scale(${ZOOM_K})`;
-    $('fsvg').innerHTML = `<line class="gate" x1="${L.p1[0]}" y1="${L.p1[1]}" x2="${L.p2[0]}" y2="${L.p2[1]}"/><circle class="ring" cx="${px}" cy="${py}" r="9"/><circle class="dot" cx="${px}" cy="${py}" r="1.4"/>`;
+    let others = '';
+    for (const o of state.events) { if (o.id === ev.id || Math.abs(o.t - ev.t) > 0.25) continue; const [ox, oy] = gatePoint(o.lane, o.y); others += `<circle class="other" cx="${ox}" cy="${oy}" r="7"/>`; }
+    const gates = laneIds().map(n => { const G = LANES[n]; return `<line class="gate${n === ev.lane ? '' : ' dim'}" x1="${G.p1[0]}" y1="${G.p1[1]}" x2="${G.p2[0]}" y2="${G.p2[1]}"/>`; }).join('');
+    $('fsvg').innerHTML = `${gates}${others}<circle class="ring" cx="${px}" cy="${py}" r="9"/><circle class="dot" cx="${px}" cy="${py}" r="1.4"/>`;
     $('ftime').textContent = `${L.label} · ${ev.t.toFixed(2)} s · #${fr(ev.t)} · 위치 ${(ev.y * 100).toFixed(0)}%`;
   }
   function showEmpty() { $('fsvg').innerHTML = ''; $('ftime').textContent = '점을 선택하세요'; }
@@ -358,11 +365,39 @@
   });
 
   // ---------- 영상 ----------
+  // 영상 위: 기준선 + 지금 시각 근처에 찍힌 라벨이 기준선 위에 점으로 떠오름
+  const FLASH = 0.35;
   function drawOverlay() {
     ctx.clearRect(0, 0, W, H);
     for (const lane of laneIds()) { const L = LANES[lane], on = loop && loop.lane === lane;
-      ctx.strokeStyle = on ? '#f0a73a' : 'rgba(240,167,58,.55)'; ctx.lineWidth = on ? 4 : 2; ctx.beginPath(); ctx.moveTo(...L.p1); ctx.lineTo(...L.p2); ctx.stroke(); }
+      ctx.strokeStyle = on ? '#f0a73a' : 'rgba(240,167,58,.55)'; ctx.lineWidth = on ? 3 : 2; ctx.beginPath(); ctx.moveTo(...L.p1); ctx.lineTo(...L.p2); ctx.stroke(); }
+    if (!state) return;
+    const t = vid.currentTime || 0;
+    for (const ev of state.events) {
+      const dt = Math.abs(ev.t - t); if (dt > FLASH) continue;
+      const [x, y] = gatePoint(ev.lane, ev.y), a = 1 - dt / FLASH, sel = ev.id === selected;
+      ctx.globalAlpha = a; ctx.strokeStyle = sel ? '#f0a73a' : '#5fbf86'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, y, 9 + 6 * (1 - a), 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = sel ? '#f0a73a' : '#5fbf86'; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
+  // 영상의 기준선 근처를 클릭하면 그 순간, 그 위치에 라벨 추가
+  ov.addEventListener('click', e => {
+    if (!state) return;
+    const r = ov.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, py = (e.clientY - r.top) / r.height * H;
+    let best = null;
+    for (const lane of laneIds()) {
+      const L = LANES[lane], dx = L.p2[0] - L.p1[0], dy = L.p2[1] - L.p1[1], len2 = dx * dx + dy * dy;
+      const u = clamp(((px - L.p1[0]) * dx + (py - L.p1[1]) * dy) / len2, 0, 1), qx = L.p1[0] + dx * u, qy = L.p1[1] + dy * u, d = Math.hypot(px - qx, py - qy);
+      if (!best || d < best.d) best = { lane, u, d };
+    }
+    if (!best || best.d > 24) { $('toast').textContent = '기준선 가까이를 클릭하세요'; setTimeout(() => $('toast').textContent = '', 2000); return; }
+    act(); remember();
+    const ev = { id: 'm' + (++state.nextId), lane: best.lane, t: +clamp(vid.currentTime, 0, DURATION - 0.02).toFixed(3), y: +best.u.toFixed(3), src: 'manual', seen: true };
+    state.events.push(ev); state.added += 1; save(); selected = ev.id; render(); showFrame(ev);
+    $('toast').textContent = `${LANES[best.lane].label} ${ev.t.toFixed(2)}초 추가`; setTimeout(() => $('toast').textContent = '', 2000);
+  });
   function tick() {
     const t = vid.currentTime || 0;
     if (loop && t >= loop.b) vid.currentTime = loop.a;
@@ -370,7 +405,7 @@
     for (const lane of laneIds()) LANES[lane].ph.style.left = (t * pps()) + 'px';
     const sc = scrollers()[0];
     if (sc && !loop && !vid.paused) { const x = t * pps(); if (x > sc.scrollLeft + sc.clientWidth * 0.8 || x < sc.scrollLeft) syncScroll(x - sc.clientWidth * 0.3); }
-    requestAnimationFrame(tick);
+    drawOverlay(); requestAnimationFrame(tick);
   }
   $('play').addEventListener('click', () => { act();
     if (vid.paused) { loop = null; vid.playbackRate = +$('rate').value; vid.play().catch(() => {}); $('play').textContent = '정지'; } else { vid.pause(); $('play').textContent = '재생'; }
