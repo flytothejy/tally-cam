@@ -103,6 +103,22 @@
   .nav .rvb { position: absolute; top: 0; bottom: 0; background: rgba(95,191,134,.28); pointer-events: none; }
   button.good { color: var(--ok); border-color: var(--ok); font-weight: 600; }
   .ranges { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 6px; word-break: break-all; }
+  .gtag { font-family: var(--mono); font-size: 12px; color: var(--amber); }
+  .gateed[hidden] { display: none; }
+  .gateed { display: grid; gap: 10px; border-color: var(--amber); }
+  .gateed .note { color: var(--muted); font-size: 12px; }
+  .grows { display: grid; gap: 6px; }
+  .grow { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+  .grow .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .grow input { font: inherit; font-size: 13px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+  .grow input.gname { width: 90px; font-family: var(--mono); }
+  .grow input.glabel { width: 120px; } .grow input.gnote { width: 180px; }
+  .grow input.bad { border-color: var(--bad); }
+  .grow .mono { font-size: 12px; }
+  .gsum { font-size: 13px; }
+  .gsum b { color: var(--amber); font-weight: 500; }
+  progress { width: 100%; height: 8px; accent-color: var(--amber); }
+  .scanbox { background: var(--panel); border: 1px dashed var(--amber); border-radius: 8px; padding: 14px; display: grid; gap: 8px; }
 </style>
 
 <div class="wrap">
@@ -124,6 +140,8 @@
       <div class="vbar">
         <button id="play" title="반복 재생 중에 누르면 반복을 풀고 이어서 재생해요">재생</button>
         <select id="rate" aria-label="재생 속도"><option value="0.5">0.5배속</option><option value="1" selected>1배속</option><option value="2">2배속</option><option value="3">3배속</option><option value="4">4배속</option></select>
+        <button id="gEdit" title="기준선(슬릿)을 영상 위에서 직접 그리고 띠를 다시 만들어요">기준선 편집</button>
+        <span class="gtag" id="gTag"></span>
         <span class="mono" id="vtime" style="margin-left:auto">0.0 s</span>
       </div>
     </div>
@@ -143,6 +161,23 @@
         <span class="mono" id="ftime" style="margin-left:auto">점을 선택하세요</span>
       </div>
     </div>
+  </section>
+
+  <section class="panel gateed" id="gateEd" hidden aria-label="기준선 편집">
+    <div class="panehead"><h2>기준선 편집</h2>
+      <span class="note">영상 위에서 끝점(■ 시작, ● 끝)이나 선을 끌어 옮겨요. 띠의 위쪽이 시작점이에요. 한 방향의 모든 차로를 한 번씩 가로지르게 그리면 대수는 기울기와 상관없이 같아요.</span></div>
+    <div class="grows" id="gRows"></div>
+    <div class="gsum" id="gSum"></div>
+    <div class="row">
+      <button id="gAdd">+ 기준선 추가</button>
+      <label class="mono" for="gSets">불러오기</label><select id="gSets" aria-label="저장된 기준선 세트"></select>
+      <button id="gJson" title="counter/lines/&lt;카메라&gt;.json 형식으로 복사">JSON 복사</button>
+      <span style="margin-left:auto"></span>
+      <button id="gCancel">취소</button>
+      <button id="gApply" class="good">적용하고 띠 다시 만들기</button>
+    </div>
+    <progress id="gProg" max="1" value="0" hidden></progress>
+    <div class="mono" id="gMsg" role="status"></div>
   </section>
 
   <section class="timeline" aria-label="시간 구간 조절">
@@ -174,7 +209,8 @@
         <li>지금 보이는 구간을 다 봤으면 <b>이 구간 검토 완료</b>(<kbd>Enter</kbd>)를 누르세요. 그 구간 라벨이 모두 확인된 것으로 기록되고 띠 위에 초록 선이 생겨요.</li>
         <li><b>검수 재생</b>: 영상을 재생하면 라벨이 찍힌 차가 기준선을 지날 때 초록 점이 떠요. 점 없이 지나가는 차가 있으면 <b>영상의 기준선을 클릭</b>해 그 순간에 바로 추가하세요.</li>
         <li>점을 선택하면 확인 프레임에 그 시각의 장면과 점(근처 다른 라벨은 초록 원)이 보여요.</li>
-        <li>키보드: <kbd>←</kbd><kbd>→</kbd> 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
+        <li><b>기준선 편집</b>: 영상 아래 버튼으로 기준선을 옮기거나 새로 그리면 그 선으로 띠를 다시 만들어요(영상을 한 번 빠르게 훑어서 1분 안팎). 라벨은 기준선 세트마다 따로 보관돼요.</li>
+        <li>키보드:<kbd>←</kbd><kbd>→</kbd> 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
       </ul>
     </div>
   </section>
@@ -222,10 +258,11 @@
   // ---------- 차로 띠 만들기 ----------
   function buildLanes() {
     const box = $('lanes'); box.innerHTML = ''; LANES = {};
-    for (const L of META.lanes) {
+    for (const L0 of GATES) {
+      const L = Object.assign({}, L0, { height: laneHeight(L0) });
       const sec = document.createElement('section'); sec.className = 'lanes'; sec.setAttribute('aria-label', `${L.label} 시공간 띠`);
       sec.innerHTML = `<div class="lanehead"><h2>${L.label}</h2><span class="note">${L.note || ''}</span><span class="cnt"></span></div>
-        <div class="scroller"><div class="track"><div class="strip"><img alt="${L.label} 기준선의 시공간 이미지" src="clips/${CLIP}/strip_${L.name}.png"></div><div class="ruler"></div><div class="playhead"></div></div></div>`;
+        <div class="scroller"><div class="track"><div class="strip"><img alt="${L.label} 기준선의 시공간 이미지" src="${SRC[L.name]}"></div><div class="ruler"></div><div class="playhead"></div></div></div>`;
       box.appendChild(sec);
       const q = s => sec.querySelector(s);
       LANES[L.name] = Object.assign({}, L, { sc: q('.scroller'), tr: q('.track'), st: q('.strip'), ru: q('.ruler'), ph: q('.playhead'), cnt: q('.cnt') });
@@ -370,6 +407,7 @@
   const FLASH = 0.35;
   function drawOverlay() {
     ctx.clearRect(0, 0, W, H);
+    if (editing) { drawDraft(); return; }
     for (const lane of laneIds()) { const L = LANES[lane], on = loop && loop.lane === lane;
       ctx.strokeStyle = on ? '#f0a73a' : 'rgba(240,167,58,.55)'; ctx.lineWidth = on ? 3 : 2; ctx.beginPath(); ctx.moveTo(...L.p1); ctx.lineTo(...L.p2); ctx.stroke(); }
     if (!state) return;
@@ -385,7 +423,7 @@
   }
   // 영상의 기준선 근처를 클릭하면 그 순간, 그 위치에 라벨 추가
   ov.addEventListener('click', e => {
-    if (!state) return;
+    if (!state || editing) return;
     const r = ov.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, py = (e.clientY - r.top) / r.height * H;
     let best = null;
     for (const lane of laneIds()) {
@@ -478,7 +516,7 @@
     $('ranges').textContent = '검토 완료 구간(초): ' + (state.ranges.length ? state.ranges.map(([a, b]) => `${a.toFixed(1)}–${b.toFixed(1)}`).join(', ') : '없음');
   }
   $('copy').addEventListener('click', () => {
-    const t = $('csv').value + '\n# reviewed_ranges: ' + JSON.stringify(state.ranges), done = m => { $('toast').textContent = m; setTimeout(() => $('toast').textContent = '', 2500); };
+    const t = $('csv').value + '\n# reviewed_ranges: ' + JSON.stringify(state.ranges) + '\n# gates: ' + JSON.stringify(GATES.map(cleanLane)), done = m => { $('toast').textContent = m; setTimeout(() => $('toast').textContent = '', 2500); };
     const fallback = () => { $('csv').select(); done('텍스트를 선택했어요. Ctrl+C로 복사하세요'); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => done('복사했어요'), fallback); else fallback();
   });
@@ -486,7 +524,7 @@
   $('reset').addEventListener('click', () => {
     if (!state) return;
     if (!armed) { armed = true; $('reset').textContent = '한 번 더 누르면 초기화'; setTimeout(() => { armed = false; $('reset').textContent = '처음부터 다시'; }, 3000); return; }
-    armed = false; $('reset').textContent = '처음부터 다시'; remember(); state = fresh(CANDS); selected = null; save(); render(); showEmpty();
+    armed = false; $('reset').textContent = '처음부터 다시'; remember(); state = fresh(CUR_CANDS); selected = null; save(); render(); showEmpty();
   });
 
   // ---------- 클립 불러오기 ----------
@@ -500,10 +538,302 @@
       $('span').max = Math.ceil(DURATION);
       $('clipTitle').textContent = m.title;
       vid.src = `clips/${id}/clip.mp4`; fv.src = `clips/${id}/clip.mp4`; loop = null;
-      buildLanes(); state = load() || fresh(c); $('loadNote').textContent = '';
+      if (editing) closeEditor();
+      DEFSIG = sigOf(META.lanes); ACTIVE = '';
+      const want = lsGet(`tallycam-labeler:${id}:active`) || DEFSIG;
+      try { await activate(want); } catch (err) { await activate(DEFSIG); }
+      $('loadNote').textContent = '';
       drawOverlay(); setSpan(Math.min(15, DURATION), Math.min(7.5, DURATION / 2));
       try { localStorage.setItem('tallycam-labeler:last', id); } catch (e) {}
     } catch (e) { $('loadNote').textContent = '클립을 불러오지 못했어요. 새로고침해 주세요.'; }
+  }
+
+  // ---------- 기준선(슬릿) 세트 ----------
+  // 라벨 시각은 기준선에 따라 달라지므로 라벨은 기준선 세트마다 따로 보관.
+  // 기본 세트 = meta.json(파이썬으로 미리 만든 띠). 다른 세트의 띠는 브라우저가 영상을 훑어 만들고 IndexedDB에 보관.
+  let GATES = [], SRC = {}, DEFSIG = '', ACTIVE = '', CUR_CANDS = [], scanning = false;
+  const GCOL = ['#f0a73a', '#5fbf86', '#6aa8ff', '#e67a66', '#c58cf0', '#e4d35a'];
+  const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const rp = p => [Math.round(p[0]), Math.round(p[1])];
+  const sameLine = (a, b) => String(rp(a.p1)) === String(rp(b.p1)) && String(rp(a.p2)) === String(rp(b.p2));
+  function sigOf(lanes) { const s = JSON.stringify(lanes.map(L => [L.name, rp(L.p1), rp(L.p2)])); let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+  const storeKey = sig => sig === DEFSIG ? `tallycam-labeler:${CLIP}` : `tallycam-labeler:${CLIP}@${sig}`;
+  const setsKey = () => `tallycam-labeler:${CLIP}:gatesets`;
+  const gateSets = () => lsGet(setsKey()) || {};
+  const cleanLane = L => ({ name: L.name, label: L.label || L.name, note: L.note || '', p1: rp(L.p1), p2: rp(L.p2) });
+  const gateLen = L => Math.hypot(L.p2[0] - L.p1[0], L.p2[1] - L.p1[1]);
+  function samplePts(L) { const n = Math.max(48, Math.round(gateLen(L))), out = []; for (let i = 0; i < n; i++) out.push([L.p1[0] + (L.p2[0] - L.p1[0]) * i / (n - 1), L.p1[1] + (L.p2[1] - L.p1[1]) * i / (n - 1)]); return out; }
+  const laneHeight = L => Math.trunc(Math.min(180, Math.max(110, samplePts(L).length * 1.5)));
+  const stripKey = L => `${CLIP}|${rp(L.p1)}|${rp(L.p2)}`;
+
+  let dbp = null;
+  function db() { if (!dbp) dbp = new Promise(res => { try { const r = indexedDB.open('tallycam-labeler', 1); r.onupgradeneeded = () => r.result.createObjectStore('strips'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); } catch (e) { res(null); } }); return dbp; }
+  async function idb(key, val) {
+    const d = await db(); if (!d) return null;
+    return new Promise(res => { try { const tx = d.transaction('strips', val === undefined ? 'readonly' : 'readwrite'), st = tx.objectStore('strips'), rq = val === undefined ? st.get(key) : st.put(val, key);
+      rq.onsuccess = () => res(rq.result === undefined ? null : rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } });
+  }
+
+  async function activate(sig, prev) {
+    const sets = gateSets(), lanes = (sets[sig] && sets[sig].lanes) || (sig === DEFSIG ? META.lanes.map(cleanLane) : null);
+    if (!lanes) { if (sig !== DEFSIG) return activate(DEFSIG); throw new Error('no gates'); }
+    const src = {}, cands = [], need = [];
+    for (const L of lanes) {
+      const d = META.lanes.find(m => sameLine(m, L));   // 기본 띠와 같은 선이면 그대로 씀
+      if (d) { src[L.name] = `clips/${CLIP}/strip_${d.name}.png`; CANDS.filter(c => c.lane === d.name).forEach(c => cands.push({ lane: L.name, t: c.t, y: c.y })); continue; }
+      const hit = await idb(stripKey(L));
+      if (hit && hit.blob) { src[L.name] = URL.createObjectURL(hit.blob); hit.cands.forEach(c => cands.push({ lane: L.name, t: c.t, y: c.y })); } else need.push(L);
+    }
+    if (need.length) {
+      $('lanes').innerHTML = `<div class="scanbox"><b>새 기준선으로 시공간 띠를 만드는 중</b><progress id="scanProg" max="1" value="0"></progress><span class="mono" id="scanMsg">영상 불러오는 중…</span></div>`;
+      const prog = (f, msg) => { const p = $('scanProg'), m = $('scanMsg'); if (p) p.value = f; if (m) m.textContent = msg; const gp = $('gProg'); gp.value = f; $('gMsg').textContent = msg; };
+      const res = await scanStrips(need, prog);
+      for (const r of res) { await idb(stripKey(r.L), { blob: r.blob, cands: r.cands }); src[r.L.name] = URL.createObjectURL(r.blob); r.cands.forEach(c => cands.push({ lane: r.L.name, t: c.t, y: c.y })); }
+    }
+    cands.sort((a, b) => a.t - b.t);
+    GATES = lanes; SRC = src; CUR_CANDS = cands; ACTIVE = sig; STORE = storeKey(sig); lsSet(`tallycam-labeler:${CLIP}:active`, sig);
+    selected = null; undoStack = []; $('undo').disabled = true; showEmpty();
+    buildLanes();
+    state = load();
+    if (!state) {
+      state = fresh(cands);
+      if (prev) {   // 선이 그대로인 차로는 이전 세트의 라벨을 옮겨 옴(이름이 바뀌었어도)
+        for (const L of lanes) {
+          const P = prev.lanes.find(p => sameLine(p, L)); if (!P) continue;
+          state.events = state.events.filter(e => e.lane !== L.name);
+          for (const e of prev.state.events) if (e.lane === P.name)
+            state.events.push({ id: 'm' + (++state.nextId), lane: L.name, t: e.t, y: e.y, src: e.src, seen: e.seen || prev.state.ranges.some(([a, b]) => e.t >= a && e.t <= b) });
+        }
+      }
+      save();
+    }
+    $('gTag').textContent = sig === DEFSIG ? '' : '사용자 기준선';
+  }
+
+  // 영상을 한 번 재생하며 프레임마다 기준선 위 픽셀(3×3 평균)을 모아 띠를 만듦 — prepare_clip.py와 같은 규칙
+  const SCAN_RATE = 2;
+  async function scanStrips(lanes, prog) {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
+    v.style.cssText = 'position:fixed;left:0;top:0;width:4px;height:4px;opacity:0.01;pointer-events:none';
+    document.body.appendChild(v); v.src = `clips/${CLIP}/clip.mp4`;
+    try {
+      await new Promise((res, rej) => { v.addEventListener('loadeddata', res, { once: true }); v.addEventListener('error', () => rej(new Error('video')), { once: true }); });
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d', { willReadFrequently: true });
+      const specs = lanes.map(L => { const pts = samplePts(L); return { L, n: pts.length, img: new ImageData(FRAMES, pts.length), idx: pts.map(([x, y]) => {
+        const xi = Math.trunc(x), yi = Math.trunc(y), o = [];
+        for (let yy = Math.max(yi - 1, 0); yy <= Math.min(yi + 1, H - 1); yy++) for (let xx = Math.max(xi - 1, 0); xx <= Math.min(xi + 1, W - 1); xx++) o.push((yy * W + xx) * 4);
+        return o; }) }; });
+      const have = new Uint8Array(FRAMES); let got = 0;
+      const grab = f => {
+        if (f < 0 || f >= FRAMES || have[f]) return;
+        cx.drawImage(v, 0, 0, W, H); const d = cx.getImageData(0, 0, W, H).data;
+        for (const s of specs) { const o = s.img.data; for (let r = 0; r < s.n; r++) { const ix = s.idx[r]; let a = 0, b = 0, c = 0; for (const k of ix) { a += d[k]; b += d[k + 1]; c += d[k + 2]; } const p = (r * FRAMES + f) * 4, m = ix.length; o[p] = a / m; o[p + 1] = b / m; o[p + 2] = c / m; o[p + 3] = 255; } }
+        have[f] = 1; got++;
+      };
+      const pct = () => Math.round(got / FRAMES * 100);
+      // 1) 빠르게 재생하면서 잡히는 프레임을 모두 모음
+      if ('requestVideoFrameCallback' in v) {
+        v.playbackRate = SCAN_RATE;
+        await new Promise(res => {
+          let done = false; const fin = () => { if (!done) { done = true; res(); } };
+          const cb = (now, md) => { grab(Math.round(md.mediaTime * FPS)); prog(got / FRAMES * 0.9, `영상 훑는 중 ${v.currentTime.toFixed(0)} / ${DURATION.toFixed(0)}초 · 프레임 ${pct()}%`); if (!done) v.requestVideoFrameCallback(cb); };
+          v.requestVideoFrameCallback(cb); v.addEventListener('ended', fin, { once: true }); v.play().catch(fin);
+        });
+        v.pause();
+      }
+      // 2) 놓친 프레임은 하나씩 찾아가서 채움 (너무 많으면 이웃 프레임으로 메움)
+      const miss = []; for (let f = 0; f < FRAMES; f++) if (!have[f]) miss.push(f);
+      const seekOne = f => new Promise(res => {
+        let to = setTimeout(() => res(null), 600);
+        const ok = (now, md) => { clearTimeout(to); res(md ? md.mediaTime : v.currentTime); };
+        if ('requestVideoFrameCallback' in v) v.requestVideoFrameCallback(ok); else v.addEventListener('seeked', () => ok(), { once: true });
+        v.currentTime = Math.min(DURATION - 0.01, f / FPS + 0.5 / 30);
+      });
+      const budget = miss.length <= 1500 ? miss : miss.filter((_, i) => i % Math.ceil(miss.length / 1500) === 0);
+      for (let i = 0; i < budget.length; i++) {
+        const f = budget[i]; if (have[f]) continue;
+        const mt = await seekOne(f); if (mt != null) { const g = Math.round(mt * FPS); grab(Math.abs(g - f) <= 1 ? f : g); }
+        if (i % 10 === 0) prog(0.9 + 0.08 * i / budget.length, `빠진 프레임 채우는 중 ${i} / ${budget.length} · 프레임 ${pct()}%`);
+      }
+      const coverage = got / FRAMES;
+      // 3) 그래도 빈 칸은 가장 가까운 앞(없으면 뒤) 프레임으로 메움
+      for (const s of specs) { const o = s.img.data; let last = -1;
+        for (let f = 0; f < FRAMES; f++) { if (have[f]) { last = f; continue; } let src = last; if (src < 0) { src = f + 1; while (src < FRAMES && !have[src]) src++; if (src >= FRAMES) continue; }
+          for (let r = 0; r < s.n; r++) { const p = (r * FRAMES + f) * 4, q = (r * FRAMES + src) * 4; o[p] = o[q]; o[p + 1] = o[q + 1]; o[p + 2] = o[q + 2]; o[p + 3] = 255; } } }
+      prog(0.99, `자동 라벨 찾는 중 · 프레임 ${Math.round(coverage * 100)}%`);
+      const out = [];
+      for (const s of specs) {
+        const c = document.createElement('canvas'); c.width = FRAMES; c.height = s.n; c.getContext('2d').putImageData(s.img, 0, 0);
+        const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+        out.push({ L: s.L, blob, cands: blobCands(s.img), coverage });
+      }
+      prog(1, `완료 · 프레임 ${Math.round(coverage * 100)}% 직접 읽음`);
+      return out;
+    } finally { v.removeAttribute('src'); v.load(); v.remove(); }
+  }
+
+  // 자동 라벨: 차로별 배경(시간 중앙값)과 다른 밝기 덩어리의 중심 — prepare_clip.py blob_candidates와 같은 규칙
+  function blobCands(img, thresh = 40, minArea = 60) {
+    const Wd = img.width, Hn = img.height, d = img.data, N = Wd * Hn, diff = new Float32Array(N), hist = new Uint32Array(256);
+    const k1 = Math.floor((Wd - 1) / 2), k2 = Math.ceil((Wd - 1) / 2);
+    const rank = k => { let acc = 0; for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc > k) return v; } return 255; };
+    for (let r = 0; r < Hn; r++) for (let ch = 0; ch < 3; ch++) {
+      hist.fill(0); for (let c = 0; c < Wd; c++) hist[d[(r * Wd + c) * 4 + ch]]++;
+      const med = (rank(k1) + rank(k2)) / 2;
+      for (let c = 0; c < Wd; c++) { const i = r * Wd + c, v = Math.abs(d[i * 4 + ch] - med); if (v > diff[i]) diff[i] = v; }
+    }
+    // 5×5 가우시안 [1 4 6 4 1]/16, 가장자리 반사(OpenCV 기본)
+    const K = [1 / 16, 4 / 16, 6 / 16, 4 / 16, 1 / 16], refl = (i, n) => i < 0 ? -i : i >= n ? 2 * n - 2 - i : i;
+    const tmp = new Float32Array(N), bl = new Float32Array(N);
+    for (let r = 0; r < Hn; r++) for (let c = 0; c < Wd; c++) { let s = 0; for (let k = -2; k <= 2; k++) s += K[k + 2] * diff[r * Wd + refl(c + k, Wd)]; tmp[r * Wd + c] = s; }
+    for (let r = 0; r < Hn; r++) for (let c = 0; c < Wd; c++) { let s = 0; for (let k = -2; k <= 2; k++) s += K[k + 2] * tmp[refl(r + k, Hn) * Wd + c]; bl[r * Wd + c] = s; }
+    let m = new Uint8Array(N); for (let i = 0; i < N; i++) m[i] = bl[i] > thresh ? 1 : 0;
+    // 닫힘(팽창 후 침식), 커널 세로 5 × 가로 9
+    const morph = (src, dil) => { const a = new Uint8Array(N), b = new Uint8Array(N);
+      for (let r = 0; r < Hn; r++) for (let c = 0; c < Wd; c++) { let v = dil ? 0 : 1; for (let k = -4; k <= 4; k++) { const cc = c + k; if (cc < 0 || cc >= Wd) continue; const x = src[r * Wd + cc]; if (dil ? x : !x) { v = dil ? 1 : 0; break; } } a[r * Wd + c] = v; }
+      for (let r = 0; r < Hn; r++) for (let c = 0; c < Wd; c++) { let v = dil ? 0 : 1; for (let k = -2; k <= 2; k++) { const rr = r + k; if (rr < 0 || rr >= Hn) continue; const x = a[rr * Wd + c]; if (dil ? x : !x) { v = dil ? 1 : 0; break; } } b[r * Wd + c] = v; }
+      return b; };
+    m = morph(morph(m, true), false);
+    // 8방향 연결 덩어리
+    const lab = new Int32Array(N), stack = new Int32Array(N), out = []; let id = 0;
+    for (let i = 0; i < N; i++) {
+      if (!m[i] || lab[i]) continue; id++; let sp = 0, area = 0, sx = 0, sy = 0; stack[sp++] = i; lab[i] = id;
+      while (sp) { const j = stack[--sp], r = (j / Wd) | 0, c = j - r * Wd; area++; sx += c; sy += r;
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const rr = r + dr, cc = c + dc; if (rr < 0 || rr >= Hn || cc < 0 || cc >= Wd) continue; const q = rr * Wd + cc; if (m[q] && !lab[q]) { lab[q] = id; stack[sp++] = q; } } }
+      if (area >= minArea) out.push({ t: +(sx / area / FPS).toFixed(3), y: +(sy / area / Hn).toFixed(3) });
+    }
+    return out.sort((a, b) => a.t - b.t);
+  }
+
+  // ---------- 기준선 편집기 ----------
+  let editing = false, draft = null, gdrag = null, armNew = false;
+  function openEditor() {
+    if (!META || scanning) return; editing = true; draft = GATES.map(cleanLane); armNew = false; loop = null;
+    $('gateEd').hidden = false; $('gEdit').textContent = '편집 닫기'; $('gMsg').textContent = ''; $('gProg').hidden = true;
+    renderGateRows(); renderSets(); drawOverlay();
+  }
+  function closeEditor() { editing = false; draft = null; gdrag = null; armNew = false; $('gateEd').hidden = true; $('gEdit').textContent = '기준선 편집'; ov.style.cursor = ''; drawOverlay(); }
+  $('gEdit').addEventListener('click', () => editing ? closeEditor() : openEditor());
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const coordText = L => `(${rp(L.p1)}) → (${rp(L.p2)}) · ${gateLen(L).toFixed(0)}px`;
+  function renderGateRows() {
+    $('gRows').innerHTML = draft.map((L, i) => `<div class="grow" data-i="${i}"><span class="sw" style="background:${GCOL[i % GCOL.length]}"></span>
+      <input class="gname" value="${esc(L.name)}" aria-label="코드 이름(영문, CSV의 route)" title="코드 이름 — CSV의 route 열, 채점 때 방향 이름">
+      <input class="glabel" value="${esc(L.label)}" aria-label="표시 이름">
+      <input class="gnote" value="${esc(L.note)}" placeholder="메모" aria-label="메모">
+      <span class="mono gc">${coordText(L)}</span>
+      <button data-act="flip" title="시작점과 끝점을 바꿔요(띠의 위아래가 뒤집혀요)">뒤집기</button>
+      <button data-act="del" class="danger">삭제</button></div>`).join('') || '<span class="note">기준선이 없어요. + 기준선 추가를 누르고 영상 위에서 끌어 그리세요.</span>';
+    renderSum();
+  }
+  function renderSum() {
+    const changed = draft.filter(L => !GATES.some(G => sameLine(G, L)));
+    const gone = GATES.filter(G => !draft.some(L => sameLine(G, L) || L.name === G.name));
+    const n = lane => state ? state.events.filter(e => e.lane === lane).length : 0;
+    const sig = sigOf(draft), saved = sig === DEFSIG || !!gateSets()[sig];
+    let s = '';
+    if (!changed.length && !gone.length && draft.length === GATES.length) s = '선은 그대로예요.' + (draft.some((L, i) => L.name !== GATES[i].name || L.label !== GATES[i].label || L.note !== GATES[i].note) ? ' 이름만 바뀌어요.' : '');
+    else {
+      if (changed.length) s += `새로 띠를 만들 기준선(옮겼거나 새로 그린 선): <b>${changed.map(L => esc(L.label)).join(', ')}</b>. `;
+      if (gone.length) s += `빠지는 기준선: ${gone.map(G => `${esc(G.label)}(라벨 ${n(G.name)}개)`).join(', ')}. `;
+      s += saved ? '이 세트로 해 둔 라벨이 있으면 그대로 불러와요.' : '바뀐 기준선의 라벨은 새로 시작하고, 지금 세트의 라벨은 지워지지 않아요(불러오기로 되돌릴 수 있어요).';
+    }
+    $('gSum').innerHTML = s;
+  }
+  $('gRows').addEventListener('input', e => {
+    const row = e.target.closest('.grow'); if (!row) return; const L = draft[+row.dataset.i];
+    if (e.target.classList.contains('gname')) { L.name = e.target.value.trim(); e.target.classList.toggle('bad', !/^[a-z0-9_-]+$/i.test(L.name)); }
+    else if (e.target.classList.contains('glabel')) L.label = e.target.value;
+    else if (e.target.classList.contains('gnote')) L.note = e.target.value;
+    renderSum();
+  });
+  $('gRows').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; const i = +b.closest('.grow').dataset.i;
+    if (b.dataset.act === 'del') draft.splice(i, 1); else if (b.dataset.act === 'flip') { const L = draft[i]; [L.p1, L.p2] = [L.p2, L.p1]; }
+    renderGateRows();
+  });
+  function renderSets() {
+    const sets = gateSets(), opts = [`<option value="">— 세트 고르기 —</option>`, `<option value="${DEFSIG}">기본 (클립 준비 때 정한 선)</option>`];
+    Object.entries(sets).filter(([s]) => s !== DEFSIG).sort((a, b) => b[1].at - a[1].at).forEach(([s, v]) => {
+      const d = new Date(v.at), when = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      opts.push(`<option value="${s}">${when} · ${esc(v.lanes.map(L => L.label).join(' · '))}${s === ACTIVE ? ' (사용 중)' : ''}</option>`); });
+    $('gSets').innerHTML = opts.join('');
+  }
+  $('gSets').addEventListener('change', e => {
+    const s = e.target.value; if (!s) return; const v = gateSets()[s];
+    draft = ((v && v.lanes) || META.lanes).map(cleanLane); renderGateRows(); e.target.value = '';
+  });
+  $('gAdd').addEventListener('click', () => { armNew = true; $('gMsg').textContent = '영상 위에서 시작점부터 끝점까지 끌어 그리세요.'; ov.style.cursor = 'crosshair'; });
+  $('gCancel').addEventListener('click', closeEditor);
+  $('gJson').addEventListener('click', () => {
+    const t = '[\n' + draft.map(L => '  ' + JSON.stringify(cleanLane(L)).replace(/,"/g, ', "').replace(/":/g, '": ')).join(',\n') + '\n]\n';
+    const done = m => { $('gMsg').textContent = m; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => done('counter/lines 형식 JSON을 복사했어요'), () => done(t)); else done(t);
+  });
+  $('gApply').addEventListener('click', async () => {
+    const names = draft.map(L => L.name);
+    if (!draft.length) return void ($('gMsg').textContent = '기준선이 하나는 있어야 해요.');
+    if (names.some(n => !/^[a-z0-9_-]+$/i.test(n))) return void ($('gMsg').textContent = '코드 이름은 영문·숫자·_·- 만 써 주세요.');
+    if (new Set(names).size !== names.length) return void ($('gMsg').textContent = '코드 이름이 겹쳐요.');
+    if (draft.some(L => gateLen(L) < 10)) return void ($('gMsg').textContent = '너무 짧은 기준선이 있어요(10px 이상).');
+    const lanes = draft.map(cleanLane), sig = sigOf(lanes), sets = gateSets();
+    sets[sig] = { lanes, at: Date.now() }; lsSet(setsKey(), sets);
+    const prev = { lanes: GATES.map(cleanLane), state: JSON.parse(JSON.stringify(state)) };
+    const sc = scrollers()[0], center = sc ? (sc.scrollLeft + sc.clientWidth / 2) / pps() : DURATION / 2;
+    scanning = true; ['gApply', 'gAdd', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = true); $('gProg').hidden = false; $('gProg').value = 0;
+    try {
+      await activate(sig, sig === ACTIVE ? null : prev);
+      closeEditor(); setSpan(+$('span').value, center);
+      $('toast').textContent = '새 기준선을 적용했어요'; setTimeout(() => $('toast').textContent = '', 2500);
+    } catch (err) {
+      $('gMsg').textContent = '띠를 만들지 못했어요: ' + (err && err.message || err) + ' — 이전 기준선으로 돌아가요.';
+      await activate(ACTIVE || DEFSIG).catch(() => {}); setSpan(+$('span').value, center);
+    } finally { scanning = false; ['gApply', 'gAdd', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = false); }
+  });
+
+  // 영상 위에서 끝점·선 끌기, 새 선 그리기
+  const ovPt = e => { const r = ov.getBoundingClientRect(); return [clamp((e.clientX - r.left) / r.width * W, 0, W - 1), clamp((e.clientY - r.top) / r.height * H, 0, H - 1)]; };
+  const hitR = () => 12 * W / (ov.getBoundingClientRect().width || W);
+  function hitTest(x, y) {
+    const R = hitR(); let best = null;
+    draft.forEach((L, i) => { for (const part of ['p1', 'p2']) { const d = Math.hypot(L[part][0] - x, L[part][1] - y); if (d < R && (!best || d < best.d)) best = { i, part, d }; } });
+    if (best) return best;
+    draft.forEach((L, i) => { const dx = L.p2[0] - L.p1[0], dy = L.p2[1] - L.p1[1], l2 = dx * dx + dy * dy || 1, u = clamp(((x - L.p1[0]) * dx + (y - L.p1[1]) * dy) / l2, 0, 1), d = Math.hypot(L.p1[0] + dx * u - x, L.p1[1] + dy * u - y); if (d < R && (!best || d < best.d)) best = { i, part: 'both', d }; });
+    return best;
+  }
+  ov.addEventListener('pointerdown', e => {
+    if (!editing || scanning) return; e.preventDefault(); const [x, y] = ovPt(e);
+    if (armNew) {
+      let k = draft.length + 1; while (draft.some(L => L.name === 'lane' + k)) k++;
+      draft.push({ name: 'lane' + k, label: '기준선 ' + k, note: '', p1: [x, y], p2: [x, y] });
+      gdrag = { i: draft.length - 1, part: 'p2', isNew: true }; armNew = false; $('gMsg').textContent = '';
+    } else { const h = hitTest(x, y); if (!h) return; gdrag = { i: h.i, part: h.part, x0: x, y0: y, o1: draft[h.i].p1.slice(), o2: draft[h.i].p2.slice() }; }
+    ov.setPointerCapture(e.pointerId);
+  });
+  ov.addEventListener('pointermove', e => {
+    if (!editing) return; const [x, y] = ovPt(e);
+    if (!gdrag) { const h = hitTest(x, y); ov.style.cursor = armNew ? 'crosshair' : h ? (h.part === 'both' ? 'move' : 'grab') : 'default'; return; }
+    const L = draft[gdrag.i];
+    if (gdrag.part === 'both') { const dx = clamp(x - gdrag.x0, -Math.min(gdrag.o1[0], gdrag.o2[0]), W - 1 - Math.max(gdrag.o1[0], gdrag.o2[0])), dy = clamp(y - gdrag.y0, -Math.min(gdrag.o1[1], gdrag.o2[1]), H - 1 - Math.max(gdrag.o1[1], gdrag.o2[1]));
+      L.p1 = [Math.round(gdrag.o1[0] + dx), Math.round(gdrag.o1[1] + dy)]; L.p2 = [Math.round(gdrag.o2[0] + dx), Math.round(gdrag.o2[1] + dy)]; }
+    else L[gdrag.part] = [Math.round(x), Math.round(y)];
+    const row = $('gRows').querySelector(`.grow[data-i="${gdrag.i}"] .gc`); if (row) row.textContent = coordText(L);
+  });
+  const endG = () => { if (!gdrag) return; const g = gdrag; gdrag = null; if (g.isNew && gateLen(draft[g.i]) < 10) draft.splice(g.i, 1); renderGateRows(); };
+  ov.addEventListener('pointerup', endG); ov.addEventListener('pointercancel', endG);
+  function drawDraft() {
+    ctx.lineCap = 'round'; ctx.font = '600 13px system-ui, sans-serif';
+    draft.forEach((L, i) => {
+      const col = GCOL[i % GCOL.length], hot = gdrag && gdrag.i === i;
+      ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(...L.p1); ctx.lineTo(...L.p2); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = hot ? 3 : 2.2; ctx.beginPath(); ctx.moveTo(...L.p1); ctx.lineTo(...L.p2); ctx.stroke();
+      ctx.fillStyle = col; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+      ctx.fillRect(L.p1[0] - 5, L.p1[1] - 5, 10, 10); ctx.strokeRect(L.p1[0] - 5, L.p1[1] - 5, 10, 10);
+      ctx.beginPath(); ctx.arc(L.p2[0], L.p2[1], 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      const tx = L.p1[0] + 9, ty = L.p1[1] - 9; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(L.label, tx, ty); ctx.fillStyle = col; ctx.fillText(L.label, tx, ty);
+    });
+    if (armNew) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(8, 8, 250, 24); ctx.fillStyle = '#fff'; ctx.fillText('끌어서 새 기준선을 그리세요', 16, 25); }
   }
   $('clipSel').addEventListener('change', e => openClip(e.target.value));
 
