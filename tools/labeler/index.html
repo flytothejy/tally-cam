@@ -1,0 +1,481 @@
+<title>tally-cam 정답 라벨러</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: 영상 | 확인 프레임 → 차로별 시공간 띠(라벨링) → 통계·도움말 → 내보내기 */
+  :root {
+    --bg: #f3f4f1; --panel: #ffffff; --line: #d9dbd4; --fg: #1d201b; --muted: #676c62;
+    --amber: #c27a0e; --amber-soft: rgba(194,122,14,.14); --ok: #2f7d4f; --bad: #b2402f;
+    --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #121411; --panel: #1b1e19; --line: #2e322b; --fg: #e6e8e1; --muted: #9a9f93;
+    --amber: #f0a73a; --amber-soft: rgba(240,167,58,.16); --ok: #5fbf86; --bad: #e67a66; color-scheme: dark } }
+  :root[data-theme="dark"] {
+    --bg: #121411; --panel: #1b1e19; --line: #2e322b; --fg: #e6e8e1; --muted: #9a9f93;
+    --amber: #f0a73a; --amber-soft: rgba(240,167,58,.16); --ok: #5fbf86; --bad: #e67a66; color-scheme: dark }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 14px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+  h1 { margin: 0; font-size: 20px; font-weight: 600; text-wrap: balance; }
+  h1 span { font-family: var(--mono); font-weight: 500; color: var(--amber); }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .rule { font-size: 13px; color: var(--fg); background: var(--amber-soft); border-radius: 6px; padding: 4px 10px; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  .view { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .view { grid-template-columns: 1fr; } }
+  .pane { display: grid; gap: 8px; min-width: 0; align-content: start; }
+  .panehead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .panehead .note { color: var(--muted); font-size: 12px; }
+  .screen { position: relative; aspect-ratio: 3 / 2; max-width: 100%; background: #000; border-radius: 6px; overflow: hidden; }
+  .screen video, .screen canvas, .screen svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .zoomer { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  .frame svg .gate { stroke: rgba(240,167,58,.7); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; fill: none; }
+  .frame svg .ring { stroke: #f0a73a; stroke-width: 2; fill: none; vector-effect: non-scaling-stroke; }
+  .frame svg .dot { fill: #f0a73a; }
+  .framebar, .vbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+
+  button, select { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--amber); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, select:focus-visible, .mk:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  button.danger { color: var(--bad); border-color: var(--bad); }
+  kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--fg); }
+
+  .lanes { display: grid; gap: 6px; }
+  .lanehead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .lanehead .note { color: var(--muted); font-size: 12px; }
+  .lanehead .cnt { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #000; }
+  .track { position: relative; }
+  .strip { position: relative; cursor: crosshair; touch-action: pan-x; }
+  .strip img { display: block; height: 100%; width: 100%; max-width: none; image-rendering: pixelated; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+  .ruler { position: relative; height: 18px; background: var(--panel); border-top: 1px solid var(--line); }
+  .ruler span { position: absolute; top: 1px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); transform: translateX(-50%); }
+  .playhead { position: absolute; top: 0; bottom: 18px; width: 2px; background: #f0a73a; pointer-events: none; opacity: .8; }
+  .mk { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; padding: 0; cursor: grab; touch-action: none;
+    border: 2px dashed #f4d27a; background: rgba(0,0,0,.15); }
+  .mk.seen { border: 2px solid #5fbf86; background: rgba(95,191,134,.3); }
+  .mk.sel { box-shadow: 0 0 0 3px #fff, 0 0 0 5px #f0a73a; z-index: 2; }
+  .mk.drag { cursor: grabbing; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--muted); font-size: 12px; align-items: center; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -2px; margin-right: 5px; }
+  .legend .c { border: 2px dashed #c9a23a; } .legend .o { border: 2px solid var(--ok); background: rgba(47,125,79,.25); }
+
+  .timeline { display: grid; gap: 8px; }
+  .tlrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .tlrow label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .tlrow input[type=range] { width: min(320px, 60vw); accent-color: var(--amber); }
+  .nav { position: relative; height: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; touch-action: none; overflow: hidden; }
+  .nav .tk { position: absolute; width: 1px; height: 11px; }
+  .nav .tk.s { top: 4px; background: var(--amber); } .nav .tk.b { bottom: 4px; background: var(--muted); }
+  .nav .win { position: absolute; top: 0; bottom: 0; border: 2px solid var(--amber); background: var(--amber-soft); border-radius: 4px; cursor: grab; }
+  .nav .lab { position: absolute; bottom: -1px; font-family: var(--mono); font-size: 10px; color: var(--muted); transform: translateX(-50%); pointer-events: none; }
+  .bottom { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .bottom { grid-template-columns: 1fr; } }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; }
+  .stat .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .stat.hero { background: var(--amber-soft); border-color: transparent; }
+  .help { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 4px; }
+  .help b { color: var(--fg); font-weight: 500; }
+  .export textarea { width: 100%; min-height: 110px; font-family: var(--mono); font-size: 12px; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; margin-top: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toast { color: var(--ok); font-size: 13px; }
+  footer { color: var(--muted); font-size: 12px; }
+  .clipsel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rv { position: absolute; top: 0; height: 5px; background: #5fbf86; pointer-events: none; }
+  .nav .rvb { position: absolute; top: 0; bottom: 0; background: rgba(95,191,134,.28); pointer-events: none; }
+  button.good { color: var(--ok); border-color: var(--ok); font-weight: 600; }
+  .ranges { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 6px; word-break: break-all; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>tally-cam <span>정답 라벨러</span></h1>
+      <p class="sub" id="clipTitle">클립 불러오는 중…</p>
+    </div>
+    <div class="clipsel">
+      <label class="mono" for="clipSel">클립</label><select id="clipSel" aria-label="라벨링할 클립"></select>
+      <span class="rule">기준: 차의 바닥이 기준선에 닿는 순간에 점을 찍어요</span>
+    </div>
+  </header>
+
+  <section class="panel view">
+    <div class="pane">
+      <div class="panehead"><h2>영상</h2><span class="note">선택한 점 앞뒤 2초 반복</span></div>
+      <div class="screen"><video id="vid" muted playsinline preload="auto"></video><canvas id="ov" width="720" height="480"></canvas></div>
+      <div class="vbar">
+        <button id="play">재생</button>
+        <select id="rate" aria-label="재생 속도"><option value="1">1배속</option><option value="2" selected>2배속</option><option value="3">3배속</option><option value="4">4배속</option></select>
+        <span class="mono" id="vtime" style="margin-left:auto">0.0 s</span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><h2>확인 프레임</h2><span class="note">띠에서 찍은 점을 그 시각의 프레임에 그대로 표시</span></div>
+      <div class="screen frame">
+        <div class="zoomer" id="zoomer">
+          <video id="fv" muted playsinline preload="auto"></video>
+          <svg id="fsvg" viewBox="0 0 720 480" preserveAspectRatio="none" aria-hidden="true"></svg>
+        </div>
+      </div>
+      <div class="framebar">
+        <button id="prevF" title="한 프레임 앞으로 (,)">◀ 1프레임</button>
+        <button id="nextF" title="한 프레임 뒤로 (.)">1프레임 ▶</button>
+        <button id="del" class="danger" title="선택한 점 삭제 (X, Delete)">삭제</button>
+        <button id="undo" title="되돌리기 (Ctrl+Z)">되돌리기</button>
+        <span class="mono" id="ftime" style="margin-left:auto">점을 선택하세요</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="timeline" aria-label="시간 구간 조절">
+    <div class="tlrow">
+      <h2>타임라인</h2>
+      <label for="span">보이는 구간 <input type="range" id="span" min="5" max="150" step="1" value="40"> <span class="mono" id="spanVal">40초</span></label>
+      <span class="mono" id="viewRange"></span>
+      <button id="markView" class="good" title="지금 보이는 구간의 라벨을 모두 확인한 것으로 표시 (Enter)">이 구간 검토 완료</button>
+      <span class="mono" style="margin-left:auto">띠 위에서 휠: 좌우 이동 · Ctrl+휠: 확대·축소</span>
+    </div>
+    <div class="nav" id="nav" title="클릭하거나 끌어서 보이는 구간을 옮겨요"><div class="win" id="navWin"></div></div>
+  </section>
+
+  <div id="lanes" class="lanes"></div>
+  <div class="legend">
+    <span><i class="c"></i>자동 라벨 · 아직 안 봄</span><span><i class="o"></i>확인함</span>
+    <span><span style="display:inline-block;width:14px;height:5px;background:#5fbf86;vertical-align:middle;margin-right:5px"></span>검토 완료 구간</span>
+    <span>가로축 = 시간, 세로축 = 기준선 위 위치</span>
+  </div>
+
+  <section class="bottom">
+    <div class="panel">
+      <div class="stats" id="stats"></div>
+      <div class="row" style="margin-top:10px"><button id="nextUnseen">다음 미검토 라벨로 이동</button><span class="mono" id="loadNote"></span></div>
+    </div>
+    <div class="panel">
+      <ul class="help">
+        <li><b>띠를 훑으면서</b> 틀린 점은 지우고, 빠진 차는 빈 곳을 클릭해 추가하고, 어긋난 점은 끌어서 맞추세요.</li>
+        <li>지금 보이는 구간을 다 봤으면 <b>이 구간 검토 완료</b>(<kbd>Enter</kbd>)를 누르세요. 그 구간 라벨이 모두 확인된 것으로 기록되고 띠 위에 초록 선이 생겨요.</li>
+        <li>점을 선택하면 확인 프레임에 그 시각의 장면과 점이 그대로 보여요.</li>
+        <li>키보드: <kbd>←</kbd><kbd>→</kbd> 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel export">
+    <div class="row"><b>정답 내보내기 (events.csv)</b><button id="copy">복사</button><button id="reset">처음부터 다시</button><span class="toast" id="toast" role="status"></span></div>
+    <textarea id="csv" readonly aria-label="정답 CSV"></textarea>
+    <div class="ranges" id="ranges"></div>
+  </section>
+
+  <footer>자동 라벨은 시공간 이미지의 밝기 덩어리로 미리 찍어 둔 점이에요(검출기와 무관). 작업 내용은 이 브라우저에 클립별로 임시 저장돼요. 영상 출처: 국토교통부 ITS 국가교통정보센터 (공공누리 제1유형)</footer>
+</div>
+
+<script>
+(() => {
+  const ZOOM_K = 2.6;
+  const $ = id => document.getElementById(id);
+  const vid = $('vid'), fv = $('fv'), ov = $('ov'), ctx = ov.getContext('2d');
+  let META = null, CANDS = null, FPS = 30, FRAMES = 1, DURATION = 1, W = 720, H = 480, CLIP = null, STORE = '';
+  let LANES = {}, zoom = 1, selected = null, loop = null, state = null, undoStack = [];
+
+  const fr = t => Math.round(t * FPS);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const gatePoint = (lane, u) => { const L = LANES[lane]; return [L.p1[0] + (L.p2[0] - L.p1[0]) * u, L.p1[1] + (L.p2[1] - L.p1[1]) * u]; };
+  const laneIds = () => Object.keys(LANES);
+  const scrollers = () => laneIds().map(n => LANES[n].sc);
+
+  // ---------- 상태 ----------
+  function fresh(cands) { let n = 0; return { events: cands.map(c => ({ id: 'a' + (++n), lane: c.lane, t: c.t, y: c.y, src: 'auto', seen: false })), ranges: [], deleted: 0, added: 0, work: 0, nextId: n }; }
+  function load() { try { const s = JSON.parse(localStorage.getItem(STORE)); return s && s.events ? Object.assign({ ranges: [] }, s) : null; } catch (e) { return null; } }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+  function remember() { undoStack.push(JSON.stringify(state)); if (undoStack.length > 80) undoStack.shift(); $('undo').disabled = false; }
+  const evById = id => state && state.events.find(e => e.id === id);
+  const inRanges = t => state.ranges.some(([a, b]) => t >= a && t <= b);
+  const reviewed = e => e.seen || inRanges(e.t);
+  function addRange(a, b) {
+    const rs = state.ranges.concat([[+a.toFixed(2), +b.toFixed(2)]]).sort((x, y) => x[0] - y[0]), out = [];
+    for (const r of rs) { const last = out[out.length - 1]; if (last && r[0] <= last[1] + 0.05) last[1] = Math.max(last[1], r[1]); else out.push(r.slice()); }
+    state.ranges = out;
+  }
+
+  let lastAct = 0; const act = () => { lastAct = performance.now(); };
+  setInterval(() => { if (state && performance.now() - lastAct < 20000 && document.visibilityState === 'visible') { state.work += 1; renderStats(); save(); } }, 1000);
+
+  // ---------- 차로 띠 만들기 ----------
+  function buildLanes() {
+    const box = $('lanes'); box.innerHTML = ''; LANES = {};
+    for (const L of META.lanes) {
+      const sec = document.createElement('section'); sec.className = 'lanes'; sec.setAttribute('aria-label', `${L.label} 시공간 띠`);
+      sec.innerHTML = `<div class="lanehead"><h2>${L.label}</h2><span class="note">${L.note || ''}</span><span class="cnt"></span></div>
+        <div class="scroller"><div class="track"><div class="strip"><img alt="${L.label} 기준선의 시공간 이미지" src="clips/${CLIP}/strip_${L.name}.png"></div><div class="ruler"></div><div class="playhead"></div></div></div>`;
+      box.appendChild(sec);
+      const q = s => sec.querySelector(s);
+      LANES[L.name] = Object.assign({}, L, { sc: q('.scroller'), tr: q('.track'), st: q('.strip'), ru: q('.ruler'), ph: q('.playhead'), cnt: q('.cnt') });
+      const lane = L.name, st = LANES[lane].st;
+      st.addEventListener('click', e => {
+        if (!state || e.target.classList.contains('mk')) return; act(); remember();
+        const r = st.getBoundingClientRect();
+        const ev = { id: 'm' + (++state.nextId), lane, t: +clamp((e.clientX - r.left) / pps(), 0, DURATION - 0.02).toFixed(3), y: +clamp((e.clientY - r.top) / r.height, 0, 1).toFixed(3), src: 'manual', seen: true };
+        state.events.push(ev); state.added += 1; save(); select(ev.id);
+      });
+      LANES[lane].sc.addEventListener('scroll', e => { if (syncing) return; syncing = true; for (const o of scrollers()) if (o !== e.target) o.scrollLeft = e.target.scrollLeft; syncing = false; updateNav(); });
+      LANES[lane].sc.addEventListener('wheel', e => {
+        const sc = LANES[lane].sc;
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault(); const r = sc.getBoundingClientRect(), before = e.clientX - r.left, tAt = (sc.scrollLeft + before) / pps();
+          setSpan(viewW() / pps() * (e.deltaY > 0 ? 1.15 : 1 / 1.15)); syncScroll(tAt * pps() - before); updateNav();
+        } else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); syncScroll(sc.scrollLeft + e.deltaY); }
+      }, { passive: false });
+    }
+  }
+  let syncing = false;
+  const syncScroll = x => { for (const s of scrollers()) s.scrollLeft = x; };
+
+  // ---------- 띠 ----------
+  const pps = () => FPS * zoom;
+  function layout() {
+    for (const lane of laneIds()) {
+      const L = LANES[lane]; L.tr.style.width = Math.round(FRAMES * zoom) + 'px'; L.st.style.height = L.height + 'px';
+      L.ru.innerHTML = ''; const step = [1, 2, 5, 10, 20, 30].find(v => v * pps() >= 60) || 30;
+      for (let s = 0; s <= DURATION; s += step) { const sp = document.createElement('span'); sp.style.left = (s * pps()) + 'px'; sp.textContent = s + 's'; L.ru.appendChild(sp); }
+    }
+    render();
+  }
+  function placeMarker(b, ev) { b.style.left = (ev.t * pps()) + 'px'; b.style.top = (ev.y * 100) + '%'; }
+  function render() {
+    if (!state) return;
+    for (const lane of laneIds()) {
+      const st = LANES[lane].st; st.querySelectorAll('.mk,.rv').forEach(e => e.remove());
+      for (const [a, b] of state.ranges) { const d = document.createElement('div'); d.className = 'rv'; d.style.left = (a * pps()) + 'px'; d.style.width = ((b - a) * pps()) + 'px'; st.appendChild(d); }
+      for (const ev of state.events) {
+        if (ev.lane !== lane) continue;
+        const b = document.createElement('button');
+        b.className = 'mk' + (reviewed(ev) ? ' seen' : '') + (selected === ev.id ? ' sel' : '');
+        b.dataset.id = ev.id; placeMarker(b, ev);
+        b.setAttribute('aria-label', `${LANES[lane].label} ${ev.t.toFixed(2)}초 ${ev.src === 'auto' ? '자동 라벨' : '직접 추가'}`);
+        b.addEventListener('pointerdown', startDrag);
+        st.appendChild(b);
+      }
+    }
+    renderStats(); renderCsv(); renderNav(); $('del').disabled = !evById(selected);
+  }
+
+  // 점 끌기: 3px 이상 움직이면 끌기, 아니면 선택
+  let drag = null;
+  function startDrag(e) {
+    e.preventDefault(); e.stopPropagation(); act();
+    const ev = evById(e.currentTarget.dataset.id); if (!ev) return;
+    drag = { ev, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, rect: LANES[ev.lane].st.getBoundingClientRect(), snap: JSON.stringify(state) };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.addEventListener('pointermove', onDrag);
+    e.currentTarget.addEventListener('pointerup', endDrag, { once: true });
+    e.currentTarget.addEventListener('pointercancel', endDrag, { once: true });
+    // 끄는 동안 점 요소가 다시 그려지면 끌기가 끊기므로, 여기서는 표시만 바꿈
+    if (selected !== ev.id) { selected = ev.id; document.querySelectorAll('.mk.sel').forEach(x => x.classList.remove('sel')); e.currentTarget.classList.add('sel'); showFrame(ev); }
+  }
+  function onDrag(e) {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 3) return;
+    if (!drag.moved) { drag.moved = true; drag.el.classList.add('drag'); loop = null; vid.pause(); }
+    const r = drag.rect, ev = drag.ev;
+    ev.t = +clamp((e.clientX - r.left) / pps(), 0, DURATION - 0.02).toFixed(3);
+    ev.y = +clamp((e.clientY - r.top) / r.height, 0, 1).toFixed(3);
+    ev.seen = true; placeMarker(drag.el, ev); showFrame(ev, true);
+  }
+  function endDrag() {
+    const d = drag; drag = null; if (!d) return;
+    d.el.removeEventListener('pointermove', onDrag); d.el.classList.remove('drag');
+    if (d.moved) { undoStack.push(d.snap); $('undo').disabled = false; save(); }
+    select(d.ev.id);
+  }
+
+  // ---------- 선택과 확인 프레임 ----------
+  function select(id, scroll, quiet) {
+    selected = id; const ev = evById(id); if (!ev) { render(); showEmpty(); return; }
+    if (!ev.seen) { ev.seen = true; save(); }
+    render();
+    if (scroll) { const sc = LANES[ev.lane].sc, x = ev.t * pps(); if (x < sc.scrollLeft + 60 || x > sc.scrollLeft + sc.clientWidth - 60) syncScroll(x - sc.clientWidth / 2); }
+    showFrame(ev);
+    if (!quiet) { loop = { a: Math.max(0, ev.t - 1.2), b: Math.min(DURATION, ev.t + 0.8), lane: ev.lane }; vid.playbackRate = 1; vid.currentTime = loop.a; vid.play().catch(() => {}); $('play').textContent = '정지'; drawOverlay(); }
+  }
+  let fvTarget = null, lastSeek = 0, pendingSeek = null;
+  function seekFv(t, throttled) {
+    fvTarget = t;
+    if (throttled && performance.now() - lastSeek < 70) { clearTimeout(pendingSeek); pendingSeek = setTimeout(() => seekFv(t), 80); return; }
+    clearTimeout(pendingSeek); lastSeek = performance.now(); if (fv.readyState >= 1) fv.currentTime = t;
+  }
+  fv.addEventListener('loadedmetadata', () => { if (fvTarget != null) fv.currentTime = fvTarget; });
+  function showFrame(ev, throttled) {
+    seekFv(clamp((fr(ev.t) + 0.5) / FPS, 0, DURATION - 0.02), throttled);
+    const [px, py] = gatePoint(ev.lane, ev.y), L = LANES[ev.lane];
+    $('zoomer').style.transform = `translate(${-ZOOM_K * (px / W - 0.5) * 100}%, ${-ZOOM_K * (py / H - 0.5) * 100}%) scale(${ZOOM_K})`;
+    $('fsvg').innerHTML = `<line class="gate" x1="${L.p1[0]}" y1="${L.p1[1]}" x2="${L.p2[0]}" y2="${L.p2[1]}"/><circle class="ring" cx="${px}" cy="${py}" r="9"/><circle class="dot" cx="${px}" cy="${py}" r="1.4"/>`;
+    $('ftime').textContent = `${L.label} · ${ev.t.toFixed(2)} s · #${fr(ev.t)} · 위치 ${(ev.y * 100).toFixed(0)}%`;
+  }
+  function showEmpty() { $('fsvg').innerHTML = ''; $('ftime').textContent = '점을 선택하세요'; }
+  function stepFrame(d) {
+    const ev = evById(selected); if (!ev) return; act(); remember();
+    ev.t = +clamp((fr(ev.t) + d) / FPS, 0, DURATION - 0.02).toFixed(3); ev.seen = true; save(); render(); showFrame(ev);
+  }
+  function delSelected() {
+    const ev = evById(selected); if (!ev) return; act(); remember();
+    const list = ordered(), i = list.findIndex(e => e.id === ev.id), next = list[i + 1] || list[i - 1];
+    state.events = state.events.filter(e => e.id !== ev.id); state.deleted += 1; save();
+    selected = null; if (next) select(next.id, true); else { render(); showEmpty(); }
+  }
+  function undo() {
+    const s = undoStack.pop(); if (!s) return; act(); state = JSON.parse(s); save();
+    $('undo').disabled = !undoStack.length; if (evById(selected)) select(selected, false, true); else { render(); showEmpty(); }
+  }
+  function markView() {
+    if (!state) return; act(); remember();
+    const sc = scrollers()[0], a = sc.scrollLeft / pps(), b = Math.min(DURATION, (sc.scrollLeft + sc.clientWidth) / pps());
+    addRange(a, b); save(); render();
+    $('toast').textContent = `${a.toFixed(0)}–${b.toFixed(0)}초 검토 완료`; setTimeout(() => $('toast').textContent = '', 2500);
+  }
+  $('prevF').addEventListener('click', () => stepFrame(-1));
+  $('nextF').addEventListener('click', () => stepFrame(1));
+  $('del').addEventListener('click', delSelected);
+  $('undo').addEventListener('click', undo);
+  $('markView').addEventListener('click', markView);
+  $('nextUnseen').addEventListener('click', () => {
+    const cur = evById(selected), t0 = cur ? cur.t : -1, list = ordered().filter(e => !reviewed(e));
+    const nx = list.find(e => e.t > t0) || list[0]; if (nx) select(nx.id, true);
+  });
+
+  // ---------- 영상 ----------
+  function drawOverlay() {
+    ctx.clearRect(0, 0, W, H);
+    for (const lane of laneIds()) { const L = LANES[lane], on = loop && loop.lane === lane;
+      ctx.strokeStyle = on ? '#f0a73a' : 'rgba(240,167,58,.55)'; ctx.lineWidth = on ? 4 : 2; ctx.beginPath(); ctx.moveTo(...L.p1); ctx.lineTo(...L.p2); ctx.stroke(); }
+  }
+  function tick() {
+    const t = vid.currentTime || 0;
+    if (loop && t >= loop.b) vid.currentTime = loop.a;
+    $('vtime').textContent = t.toFixed(1) + ' s';
+    for (const lane of laneIds()) LANES[lane].ph.style.left = (t * pps()) + 'px';
+    const sc = scrollers()[0];
+    if (sc && !loop && !vid.paused) { const x = t * pps(); if (x > sc.scrollLeft + sc.clientWidth * 0.8 || x < sc.scrollLeft) syncScroll(x - sc.clientWidth * 0.3); }
+    requestAnimationFrame(tick);
+  }
+  $('play').addEventListener('click', () => { act();
+    if (vid.paused) { loop = null; vid.playbackRate = +$('rate').value; vid.play().catch(() => {}); $('play').textContent = '정지'; } else { vid.pause(); $('play').textContent = '재생'; }
+    drawOverlay(); });
+  $('rate').addEventListener('change', () => { if (!loop) vid.playbackRate = +$('rate').value; });
+  vid.addEventListener('ended', () => { $('play').textContent = '재생'; });
+
+  // ---------- 타임라인 ----------
+  const viewW = () => (scrollers()[0] && scrollers()[0].clientWidth) || 1000;
+  function setSpan(sec, anchorT) {
+    const sc = scrollers()[0], w = viewW();
+    const center = anchorT != null ? anchorT : (sc.scrollLeft + w / 2) / pps();
+    sec = clamp(sec, 5, DURATION); $('span').value = Math.round(sec); $('spanVal').textContent = Math.round(sec) + '초';
+    zoom = w / (sec * FPS); layout(); syncScroll(center * pps() - w / 2); updateNav();
+  }
+  function updateNav() {
+    const sc = scrollers()[0]; if (!sc) return;
+    const tw = FRAMES * zoom, nw = $('nav').clientWidth, a = sc.scrollLeft / tw, b = Math.min(1, (sc.scrollLeft + sc.clientWidth) / tw);
+    $('navWin').style.left = (a * nw) + 'px'; $('navWin').style.width = Math.max(6, (b - a) * nw) + 'px';
+    $('viewRange').textContent = `${(a * DURATION).toFixed(0)}–${(b * DURATION).toFixed(0)}초 / ${DURATION.toFixed(0)}초`;
+  }
+  function renderNav() {
+    const nav = $('nav'); nav.querySelectorAll('.tk,.lab,.rvb').forEach(e => e.remove()); if (!state) return;
+    for (const [a, b] of state.ranges) { const d = document.createElement('div'); d.className = 'rvb'; d.style.left = (a / DURATION * 100) + '%'; d.style.width = ((b - a) / DURATION * 100) + '%'; nav.insertBefore(d, nav.firstChild); }
+    const first = laneIds()[0];
+    for (const ev of state.events) { const d = document.createElement('div'); d.className = 'tk ' + (ev.lane === first ? 's' : 'b'); d.style.left = (ev.t / DURATION * 100) + '%'; nav.appendChild(d); }
+    for (let s = 30; s < DURATION; s += 30) { const l = document.createElement('span'); l.className = 'lab'; l.style.left = (s / DURATION * 100) + '%'; l.textContent = s + 's'; nav.appendChild(l); }
+  }
+  let navDrag = false;
+  function navTo(e) { const r = $('nav').getBoundingClientRect(), t = clamp((e.clientX - r.left) / r.width, 0, 1) * DURATION; syncScroll(t * pps() - viewW() / 2); }
+  $('nav').addEventListener('pointerdown', e => { navDrag = true; $('nav').setPointerCapture(e.pointerId); navTo(e); });
+  $('nav').addEventListener('pointermove', e => { if (navDrag) navTo(e); });
+  $('nav').addEventListener('pointerup', () => { navDrag = false; });
+  $('span').addEventListener('input', e => setSpan(+e.target.value));
+  window.addEventListener('resize', () => { if (state) setSpan(+$('span').value); });
+
+  // ---------- 키보드 ----------
+  const ordered = () => state.events.slice().sort((a, b) => a.t - b.t);
+  function move(d) { const l = ordered(); if (!l.length) return; let i = l.findIndex(e => e.id === selected); i = i < 0 ? (d > 0 ? 0 : l.length - 1) : clamp(i + d, 0, l.length - 1); select(l[i].id, true); }
+  document.addEventListener('keydown', e => {
+    if (!state || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === 'z') { undo(); e.preventDefault(); return; }
+    if (k === 'arrowright') { act(); move(1); e.preventDefault(); }
+    else if (k === 'arrowleft') { act(); move(-1); e.preventDefault(); }
+    else if (k === 'x' || k === 'delete' || k === 'backspace') { delSelected(); e.preventDefault(); }
+    else if (k === ',') { stepFrame(-1); e.preventDefault(); }
+    else if (k === '.') { stepFrame(1); e.preventDefault(); }
+    else if (k === 'enter' && e.target.tagName !== 'BUTTON') { markView(); e.preventDefault(); }
+  });
+
+  // ---------- 통계·내보내기 ----------
+  function renderStats() {
+    const total = state.events.length, revSec = state.ranges.reduce((s, [a, b]) => s + (b - a), 0);
+    const tiles = [['라벨 1개당 사람 시간', (total ? (state.work / total).toFixed(1) : '—') + ' <small>초</small>', true]];
+    for (const lane of laneIds()) { const n = state.events.filter(e => e.lane === lane).length; tiles.push([`${LANES[lane].label} 라벨`, n]); LANES[lane].cnt.textContent = `라벨 ${n}`; }
+    tiles.push(['검토 완료 구간', `${Math.min(100, revSec / DURATION * 100).toFixed(0)} <small>%</small>`]);
+    tiles.push(['미검토 자동 라벨', state.events.filter(e => e.src === 'auto' && !reviewed(e)).length]);
+    tiles.push(['작업 시간', state.work + ' <small>초</small>']);
+    tiles.push(['직접 추가 / 삭제', `${state.added} / ${state.deleted}`]);
+    $('stats').innerHTML = tiles.map(([k, v, hero]) => `<div class="stat${hero ? ' hero' : ''}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  }
+  function renderCsv() {
+    const rows = ['clip,event_id,route,class,t_gate_sec,frame,gate_pos,x,y,source,reviewed'];
+    ordered().forEach((e, i) => { const [x, y] = gatePoint(e.lane, e.y);
+      rows.push([CLIP, `e${String(i + 1).padStart(3, '0')}`, e.lane, 'vehicle', e.t.toFixed(3), fr(e.t), e.y.toFixed(3), x.toFixed(1), y.toFixed(1), e.src, reviewed(e) ? 1 : 0].join(',')); });
+    $('csv').value = rows.join('\n');
+    $('ranges').textContent = '검토 완료 구간(초): ' + (state.ranges.length ? state.ranges.map(([a, b]) => `${a.toFixed(1)}–${b.toFixed(1)}`).join(', ') : '없음');
+  }
+  $('copy').addEventListener('click', () => {
+    const t = $('csv').value + '\n# reviewed_ranges: ' + JSON.stringify(state.ranges), done = m => { $('toast').textContent = m; setTimeout(() => $('toast').textContent = '', 2500); };
+    const fallback = () => { $('csv').select(); done('텍스트를 선택했어요. Ctrl+C로 복사하세요'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => done('복사했어요'), fallback); else fallback();
+  });
+  let armed = false;
+  $('reset').addEventListener('click', () => {
+    if (!state) return;
+    if (!armed) { armed = true; $('reset').textContent = '한 번 더 누르면 초기화'; setTimeout(() => { armed = false; $('reset').textContent = '처음부터 다시'; }, 3000); return; }
+    armed = false; $('reset').textContent = '처음부터 다시'; remember(); state = fresh(CANDS); selected = null; save(); render(); showEmpty();
+  });
+
+  // ---------- 클립 불러오기 ----------
+  async function openClip(id) {
+    $('loadNote').textContent = '클립 불러오는 중…'; state = null; selected = null; undoStack = []; $('undo').disabled = true; showEmpty();
+    try {
+      const [m, c] = await Promise.all([fetch(`clips/${id}/meta.json`).then(r => r.json()), fetch(`clips/${id}/cands.json`).then(r => r.json())]);
+      META = m; CANDS = c; CLIP = id; FPS = m.fps; FRAMES = m.frames; DURATION = FRAMES / FPS; W = m.width; H = m.height;
+      STORE = `tallycam-labeler:${id}`;
+      ov.width = W; ov.height = H; $('fsvg').setAttribute('viewBox', `0 0 ${W} ${H}`);
+      $('span').max = Math.ceil(DURATION);
+      $('clipTitle').textContent = m.title;
+      vid.src = `clips/${id}/clip.mp4`; fv.src = `clips/${id}/clip.mp4`; loop = null;
+      buildLanes(); state = load() || fresh(c); $('loadNote').textContent = '';
+      drawOverlay(); setSpan(Math.min(40, DURATION), Math.min(20, DURATION / 2));
+      try { localStorage.setItem('tallycam-labeler:last', id); } catch (e) {}
+    } catch (e) { $('loadNote').textContent = '클립을 불러오지 못했어요. 새로고침해 주세요.'; }
+  }
+  $('clipSel').addEventListener('change', e => openClip(e.target.value));
+
+  $('undo').disabled = true; $('del').disabled = true; requestAnimationFrame(tick);
+  vid.addEventListener('loadeddata', () => { if (!loop) vid.currentTime = 0.01; });
+  fetch('clips/index.json').then(r => r.json()).then(list => {
+    $('clipSel').innerHTML = list.map(c => `<option value="${c.id}">${c.id}</option>`).join('');
+    let last = null; try { last = localStorage.getItem('tallycam-labeler:last'); } catch (e) {}
+    const id = list.some(c => c.id === last) ? last : list[0].id; $('clipSel').value = id; openClip(id);
+  }).catch(() => { $('clipTitle').textContent = '클립 목록을 불러오지 못했어요.'; });
+})();
+</script>

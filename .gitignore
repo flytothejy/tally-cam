@@ -1,3 +1,4 @@
 .env
 __pycache__/
 samples/
+tools/labeler/clips/*/clip.mp4
