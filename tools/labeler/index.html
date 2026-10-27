@@ -122,7 +122,7 @@
       <div class="panehead"><h2>영상</h2><span class="note">라벨이 기준선을 지날 때 초록 점이 떠요 · 점 없이 지나가는 차는 기준선을 클릭해 추가</span></div>
       <div class="screen"><video id="vid" muted playsinline preload="auto"></video><canvas id="ov" width="720" height="480"></canvas></div>
       <div class="vbar">
-        <button id="play">재생</button>
+        <button id="play" title="반복 재생 중에 누르면 반복을 풀고 이어서 재생해요">재생</button>
         <select id="rate" aria-label="재생 속도"><option value="0.5">0.5배속</option><option value="1" selected>1배속</option><option value="2">2배속</option><option value="3">3배속</option><option value="4">4배속</option></select>
         <span class="mono" id="vtime" style="margin-left:auto">0.0 s</span>
       </div>
@@ -314,7 +314,8 @@
     render();
     if (scroll) { const sc = LANES[ev.lane].sc, x = ev.t * pps(); if (x < sc.scrollLeft + 60 || x > sc.scrollLeft + sc.clientWidth - 60) syncScroll(x - sc.clientWidth / 2); }
     showFrame(ev);
-    if (!quiet) { loop = { a: Math.max(0, ev.t - 1.2), b: Math.min(DURATION, ev.t + 0.8), lane: ev.lane }; vid.playbackRate = 1; vid.currentTime = loop.a; vid.play().catch(() => {}); $('play').textContent = '정지'; drawOverlay(); }
+    const reviewing = !vid.paused && !loop;   // 검수 재생 중이면 반복 재생으로 끊지 않음
+    if (!quiet && !reviewing) { loop = { a: Math.max(0, ev.t - 1.2), b: Math.min(DURATION, ev.t + 0.8), lane: ev.lane }; vid.playbackRate = 1; vid.currentTime = loop.a; vid.play().catch(() => {}); $('play').textContent = '정지'; drawOverlay(); }
   }
   let fvTarget = null, lastSeek = 0, pendingSeek = null;
   function seekFv(t, throttled) {
@@ -408,7 +409,8 @@
     drawOverlay(); requestAnimationFrame(tick);
   }
   $('play').addEventListener('click', () => { act();
-    if (vid.paused) { loop = null; vid.playbackRate = +$('rate').value; vid.play().catch(() => {}); $('play').textContent = '정지'; } else { vid.pause(); $('play').textContent = '재생'; }
+    if (loop) { loop = null; vid.playbackRate = +$('rate').value; vid.play().catch(() => {}); $('play').textContent = '정지'; }   // 반복 중이면 반복만 풀고 이어서 재생
+    else if (vid.paused) { vid.playbackRate = +$('rate').value; vid.play().catch(() => {}); $('play').textContent = '정지'; } else { vid.pause(); $('play').textContent = '재생'; }
     drawOverlay(); });
   $('rate').addEventListener('change', () => { if (!loop) vid.playbackRate = +$('rate').value; });
   vid.addEventListener('ended', () => { $('play').textContent = '재생'; });
@@ -499,7 +501,7 @@
       $('clipTitle').textContent = m.title;
       vid.src = `clips/${id}/clip.mp4`; fv.src = `clips/${id}/clip.mp4`; loop = null;
       buildLanes(); state = load() || fresh(c); $('loadNote').textContent = '';
-      drawOverlay(); setSpan(Math.min(40, DURATION), Math.min(20, DURATION / 2));
+      drawOverlay(); setSpan(Math.min(15, DURATION), Math.min(7.5, DURATION / 2));
       try { localStorage.setItem('tallycam-labeler:last', id); } catch (e) {}
     } catch (e) { $('loadNote').textContent = '클립을 불러오지 못했어요. 새로고침해 주세요.'; }
   }
