@@ -1,0 +1,14 @@
+{
+  "bbox": {"minX": 126.98, "maxX": 127.13, "minY": 37.13, "maxY": 37.53},
+  "road_type": "ex",
+  "cameras": [
+    {"slug": "dongtan-jct", "name": "[경부선] 동탄분기점"},
+    {"slug": "giheung", "name": "[경부선] 기흥"},
+    {"slug": "osan", "name": "[경부선] 오산"},
+    {"slug": "wonji", "name": "[경부선] 원지동"},
+    {"slug": "dalraenae1", "name": "[경부선] 달래내1"},
+    {"slug": "seocho", "name": "[경부선] 서초"},
+    {"slug": "yangjae", "name": "[경부선] 양재"},
+    {"slug": "songpa", "name": "[수도권제1순환선] 송파"}
+  ]
+}

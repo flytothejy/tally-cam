@@ -1,0 +1,23 @@
+{
+  "version": "0.1",
+  "note": "조건표: light(day/dusk/night) · density(free/dense/stopgo) · view(approach/recede/mixed). split은 카메라와 날짜 기준으로 나누고, test 정답은 방법 개발 중에 보지 않는다.",
+  "tolerance_sec": 1.0,
+  "clips": [
+    {"id": "dongtan-night-01", "camera": "dongtan-jct", "date": "2026-10-26", "video": "samples/dongtan_night_01.mp4", "gates": "counter/lines/dongtan-jct.json",
+     "gt": "eval/gt/dongtan_night_01_v1.csv", "split": "dev", "light": "night", "density": "free", "view": "mixed"},
+    {"id": "dongtan-night-02", "camera": "dongtan-jct", "date": "2026-10-27", "video": "samples/dongtan_night_02.mp4", "gates": "counter/lines/dongtan-jct-v2.json",
+     "gt": "eval/gt/dongtan_night_02_v2.csv", "split": "test", "light": "night", "density": "free", "view": "mixed"},
+    {"id": "dalraenae1-am-01", "camera": "dalraenae1", "date": "2026-10-28", "video": "samples/dalraenae1_am_01.mp4", "gates": "counter/lines/gyeongbu-dalraenae1.json",
+     "gt": null, "split": "dev", "light": "day", "density": "dense", "view": "mixed"},
+    {"id": "seocho-am-01", "camera": "seocho", "date": "2026-10-28", "video": "samples/seocho_am_01.mp4", "gates": "counter/lines/gyeongbu-seocho.json",
+     "gt": null, "split": "dev", "light": "day", "density": "dense", "view": "mixed"},
+    {"id": "songpa-am-01", "camera": "songpa", "date": "2026-10-28", "video": "samples/songpa_am_01.mp4", "gates": "counter/lines/ring1-songpa.json",
+     "gt": null, "split": "dev", "light": "day", "density": "dense", "view": "mixed"},
+    {"id": "wonji-am-01", "camera": "wonji", "date": "2026-10-28", "video": "samples/wonji_am_01.mp4", "gates": "counter/lines/gyeongbu-wonji.json",
+     "gt": null, "split": "dev", "light": "day", "density": "stopgo", "view": "mixed"},
+    {"id": "songpa-am-02", "camera": "songpa", "date": "2026-10-28", "video": "samples/songpa_am_02.mp4", "gates": "counter/lines/ring1-songpa.json",
+     "gt": null, "split": "dev", "light": "day", "density": "dense", "view": "mixed"},
+    {"id": "wonji-am-02", "camera": "wonji", "date": "2026-10-28", "video": "samples/wonji_am_02.mp4", "gates": "counter/lines/gyeongbu-wonji.json",
+     "gt": null, "split": "dev", "light": "day", "density": "dense", "view": "mixed"}
+  ]
+}
