@@ -641,10 +641,29 @@
       state = fresh(cands);
       if (prev) {   // 선이 그대로인 차로는 이전 세트의 라벨을 옮겨 옴(이름이 바뀌었어도)
         for (const L of lanes) {
-          const P = prev.lanes.find(p => sameLine(p, L)); if (!P) continue;
-          state.events = state.events.filter(e => e.lane !== L.name);
-          for (const e of prev.state.events) if (e.lane === P.name)
-            state.events.push({ id: 'm' + (++state.nextId), lane: L.name, t: e.t, y: e.y, src: e.src, seen: e.seen || prev.state.ranges.some(([a, b]) => e.t >= a && e.t <= b) });
+          const wasSeen = e => e.seen || prev.state.ranges.some(([a, b]) => e.t >= a && e.t <= b);
+          const P = prev.lanes.find(p => sameLine(p, L));
+          if (P) {
+            state.events = state.events.filter(e => e.lane !== L.name);
+            for (const e of prev.state.events) if (e.lane === P.name)
+              state.events.push({ id: 'm' + (++state.nextId), lane: L.name, t: e.t, y: e.y, src: e.src, seen: wasSeen(e) });
+            continue;
+          }
+          // 같은 직선 위에서 늘이거나 줄이거나 나눈 기준선이면, 이전 라벨을 새 선 위 위치로 옮겨 옴(시각은 그대로).
+          // 이전 선이 덮던 구간의 자동 라벨은 빼고, 새로 덮게 된 구간의 자동 라벨만 남김.
+          const dx = L.p2[0] - L.p1[0], dy = L.p2[1] - L.p1[1], len = Math.hypot(dx, dy) || 1;
+          const proj = (x, y) => [((x - L.p1[0]) * dx + (y - L.p1[1]) * dy) / (len * len), Math.abs((x - L.p1[0]) * dy - (y - L.p1[1]) * dx) / len];
+          const onLine = (x, y) => proj(x, y)[1] <= 4;
+          const cols = prev.lanes.filter(p => onLine(...p.p1) && onLine(...p.p2));
+          if (!cols.length) continue;
+          const spans = cols.map(p => { const a = proj(...p.p1)[0], b = proj(...p.p2)[0]; return [Math.min(a, b), Math.max(a, b)]; });
+          state.events = state.events.filter(e => e.lane !== L.name || !spans.some(([a, b]) => e.y >= a - 0.01 && e.y <= b + 0.01));
+          for (const p of cols) for (const e of prev.state.events) {
+            if (e.lane !== p.name) continue;
+            const x = p.p1[0] + (p.p2[0] - p.p1[0]) * e.y, y = p.p1[1] + (p.p2[1] - p.p1[1]) * e.y, [u] = proj(x, y);
+            if (u < 0 || u > 1) continue;
+            state.events.push({ id: 'm' + (++state.nextId), lane: L.name, t: e.t, y: +u.toFixed(3), src: e.src, seen: wasSeen(e) });
+          }
         }
       }
       save();
@@ -780,7 +799,7 @@
     else {
       if (changed.length) s += `새로 띠를 만들 기준선(옮겼거나 새로 그린 선): <b>${changed.map(L => esc(L.label)).join(', ')}</b>. `;
       if (gone.length) s += `빠지는 기준선: ${gone.map(G => `${esc(G.label)}(라벨 ${n(G.name)}개)`).join(', ')}. `;
-      s += saved ? '이 세트로 해 둔 라벨이 있으면 그대로 불러와요.' : '바뀐 기준선의 라벨은 새로 시작하고, 지금 세트의 라벨은 지워지지 않아요(불러오기로 되돌릴 수 있어요).';
+      s += saved ? '이 세트로 해 둔 라벨이 있으면 그대로 불러와요.' : '같은 직선 위에서 늘이거나 줄이거나 나눈 선은 라벨을 새 위치로 옮겨 오고, 새로 덮게 된 부분에만 자동 라벨을 붙여요. 직선을 바꾼 선은 새로 시작해요. 지금 세트의 라벨은 지워지지 않아요(불러오기로 되돌릴 수 있어요).';
     }
     $('gSum').innerHTML = s;
   }
