@@ -775,7 +775,14 @@
     renderGateRows(); renderSets(); drawOverlay();
   }
   function closeEditor() { editing = false; draft = null; gdrag = null; armNew = false; $('gateEd').hidden = true; $('gEdit').textContent = '기준선 편집'; ov.style.cursor = ''; drawOverlay(); }
-  $('gEdit').addEventListener('click', () => editing ? closeEditor() : openEditor());
+  // 적용하지 않은 변경이 있으면 닫기 전에 한 번 경고(닫으면 변경은 버려짐)
+  let closeArmed = false;
+  const dirty = () => editing && draft && JSON.stringify(draft.map(cleanLane)) !== JSON.stringify(GATES.map(cleanLane));
+  function tryClose() {
+    if (dirty() && !closeArmed) { closeArmed = true; $('gMsg').innerHTML = '<b style="color:var(--bad)">적용하지 않은 변경이 있어요.</b> 반영하려면 <b>적용하고 띠 다시 만들기</b>를 누르세요. 정말 버리려면 한 번 더 닫기.'; setTimeout(() => { closeArmed = false; }, 4000); return; }
+    closeArmed = false; closeEditor();
+  }
+  $('gEdit').addEventListener('click', () => editing ? tryClose() : openEditor());
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const coordText = L => `(${rp(L.p1)}) → (${rp(L.p2)}) · ${gateLen(L).toFixed(0)}px`;
   function renderGateRows() {
@@ -834,7 +841,11 @@
     draft = ((v && v.lanes) || META.lanes).map(cleanLane); renderGateRows(); e.target.value = '';
   });
   $('gAdd').addEventListener('click', () => { armNew = true; $('gMsg').textContent = '영상 위에서 시작점부터 끝점까지 끌어 그리세요.'; ov.style.cursor = 'crosshair'; });
-  $('gCancel').addEventListener('click', closeEditor);
+  $('gCancel').addEventListener('click', tryClose);
+  // 예상 못한 오류는 화면에 보여 줌(원인 찾기용)
+  const showErr = m => { const t = '오류: ' + m; $('loadNote').textContent = t; if (editing) $('gMsg').textContent = t; };
+  window.addEventListener('error', e => showErr(e.message || e));
+  window.addEventListener('unhandledrejection', e => showErr((e.reason && (e.reason.message || e.reason)) || 'unknown'));
   $('gJson').addEventListener('click', () => {
     const t = '[\n' + draft.map(L => '  ' + JSON.stringify(cleanLane(L)).replace(/,"/g, ', "').replace(/":/g, '": ')).join(',\n') + '\n]\n';
     const done = m => { $('gMsg').textContent = m; };
