@@ -8,12 +8,13 @@
    "camera": "dongtan-jct",
    "date": "2026-10-26",
    "video": "samples/dongtan_night_01.mp4",
-   "gates": "counter/lines/dongtan-jct.json",
-   "gt": "eval/gt/dongtan_night_01_v1.csv",
+   "gates": "counter/lines/dongtan-night-01-v2.json",
+   "gt": "eval/gt/dongtan_night_01_v2.csv",
    "split": "dev",
    "light": "night",
    "density": "free",
-   "view": "mixed"
+   "view": "mixed",
+   "note": "v2(10/31, 개선된 라벨러로 재라벨링, 188대)가 정답. v1(162대)은 사람 간 일치도 비교용"
   },
   {
    "id": "dongtan-night-02",
