@@ -97,12 +97,13 @@
    "camera": "wonji",
    "date": "2026-10-28",
    "video": "samples/wonji_am_02.mp4",
-   "gates": "counter/lines/gyeongbu-wonji.json",
-   "gt": null,
+   "gates": "counter/lines/wonji-am-02.json",
+   "gt": "eval/gt/wonji_am_02_v1.csv",
    "split": "dev",
    "light": "day",
    "density": "dense",
-   "view": "mixed"
+   "view": "mixed",
+   "note": "100초 전체 라벨링, 기준선은 라벨링 때 사용자가 고친 것(# gates)"
   }
  ]
 }
