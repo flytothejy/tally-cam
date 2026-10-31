@@ -21,12 +21,13 @@
    "camera": "dongtan-jct",
    "date": "2026-10-27",
    "video": "samples/dongtan_night_02.mp4",
-   "gates": "counter/lines/dongtan-jct-v2.json",
-   "gt": "eval/gt/dongtan_night_02_v2.csv",
+   "gates": "counter/lines/dongtan-night-02-v3.json",
+   "gt": "eval/gt/dongtan_night_02_v3.csv",
    "split": "test",
    "light": "night",
    "density": "free",
-   "view": "mixed"
+   "view": "mixed",
+   "note": "v3(10/31, 개선된 라벨러로 재라벨링)가 정답. v2는 일치도 비교용"
   },
   {
    "id": "dalraenae1-am-01",
