@@ -29,6 +29,8 @@ def read_gt(path):
     for l in lines:
         if l.startswith("# reviewed_ranges:"):
             ranges = json.loads(l.split(":", 1)[1])
+    if not ranges:  # 검토 구간 표시가 없으면 클립 전체를 골든으로 본다(전체를 훑어본 라벨링)
+        ranges = None
     rows = list(csv.DictReader(l for l in lines if l and not l.startswith("#")))
     ev = [(direction(r["route"]), float(r["t_gate_sec"])) for r in rows]
     return ev, ranges
