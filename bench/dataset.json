@@ -32,12 +32,13 @@
    "camera": "dalraenae1",
    "date": "2026-10-28",
    "video": "samples/dalraenae1_am_01.mp4",
-   "gates": "counter/lines/gyeongbu-dalraenae1.json",
-   "gt": null,
+   "gates": "counter/lines/dalraenae1-am-01.json",
+   "gt": "eval/gt/dalraenae1_am_01_v1.csv",
    "split": "dev",
    "light": "day",
    "density": "dense",
-   "view": "mixed"
+   "view": "mixed",
+   "note": "150초 전체 라벨링, 기준선은 라벨링 때 사용자가 고친 것(# gates)"
   },
   {
    "id": "seocho-am-01",
