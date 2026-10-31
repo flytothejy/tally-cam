@@ -1,0 +1,1 @@
+{"method": "ultralytics solutions.ObjectCounter (defaults), one counter per line", "video_seconds": 150.03, "infer_ms_avg": 399.1, "events": [{"t": 30.393, "line": "seoul"}, {"t": 43.271, "line": "busan"}, {"t": 64.856, "line": "busan"}, {"t": 75.198, "line": "seoul"}, {"t": 83.272, "line": "busan"}, {"t": 123.607, "line": "seoul"}, {"t": 144.992, "line": "seoul"}]}
