@@ -66,9 +66,13 @@
   .ruler span { position: absolute; top: 1px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); transform: translateX(-50%); }
   .playhead { position: absolute; top: 0; bottom: 18px; width: 2px; background: #f0a73a; pointer-events: none; opacity: .8; }
   .mk { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; padding: 0; cursor: grab; touch-action: none;
-    border: 2px dashed #f4d27a; background: transparent; }
+    border: 2px dashed var(--mk-new, #f4d27a); background: transparent; box-shadow: 0 0 0 1px rgba(0,0,0,.65), inset 0 0 0 1px rgba(0,0,0,.65); }
+  #lanes { --mk-new: #f4d27a; --mk-seen: #5fbf86; }
+  #lanes.mk-mc { --mk-new: #ff3fd2; --mk-seen: #00e5ff; }
+  #lanes.mk-ob { --mk-new: #ff7a00; --mk-seen: #2f7dff; }
+  #lanes.mk-rw { --mk-new: #ff2d2d; --mk-seen: #ffffff; }
   .mk::after { content: ''; position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; margin: -1px 0 0 -1px; background: #fff; border-radius: 50%; }
-  .mk.seen { border: 2px solid #5fbf86; background: transparent; }
+  .mk.seen { border: 2px solid var(--mk-seen, #5fbf86); background: transparent; }
   .lanes.hidemk .mk, .lanes.hidemk .rv { visibility: hidden; }
   .task { position: absolute; top: 0; bottom: 0; border-left: 2px solid #f0a73a; border-right: 2px solid #f0a73a; background: rgba(240,167,58,.07); pointer-events: none; }
   .nav .taskb { position: absolute; top: 0; bottom: 0; border: 2px solid var(--fg); border-radius: 3px; pointer-events: none; }
@@ -189,6 +193,7 @@
       <h2>타임라인</h2>
       <label for="span">보이는 구간 <input type="range" id="span" min="5" max="150" step="1" value="40"> <span class="mono" id="spanVal">40초</span></label>
       <span class="mono" id="viewRange"></span>
+      <label for="mkTheme">점 색 <select id="mkTheme" aria-label="띠 위 점 색 조합"><option value="">노랑 / 초록</option><option value="mk-mc">마젠타 / 시안</option><option value="mk-ob">주황 / 파랑</option><option value="mk-rw">빨강 / 흰색</option></select></label>
       <button id="pickWin" title="아직 검토하지 않은 10초 구간을 무작위로 골라 그 구간만 보여줘요 (R)">검토 구간 뽑기</button>
       <button id="markView" class="good" title="지금 보이는 구간의 라벨을 모두 확인한 것으로 표시 (Enter)">이 구간 검토 완료</button>
       <span class="mono" style="margin-left:auto">띠 위에서 휠: 좌우 이동 · Ctrl+휠: 확대·축소</span>
@@ -414,6 +419,10 @@
     $('toast').textContent = `${a}–${a + WIN}초 구간을 끝까지 보고 Enter`; setTimeout(() => $('toast').textContent = '', 3500);
   }
   $('pickWin').addEventListener('click', pickWindow);
+  // 점 색 조합(아직 안 봄 / 확인함): 밝은 낮 화면에서는 노랑이 안 보여서 보색 쌍을 고를 수 있게
+  function applyTheme(v) { ['mk-mc', 'mk-ob', 'mk-rw'].forEach(c => $('lanes').classList.toggle(c, c === v)); $('mkTheme').value = v; }
+  try { applyTheme(localStorage.getItem('tallycam-labeler:mkTheme') || ''); } catch (e) {}
+  $('mkTheme').addEventListener('change', e => { applyTheme(e.target.value); try { localStorage.setItem('tallycam-labeler:mkTheme', e.target.value); } catch (er) {} });
   $('prevF').addEventListener('click', () => stepFrame(-1));
   $('nextF').addEventListener('click', () => stepFrame(1));
   $('del').addEventListener('click', delSelected);
