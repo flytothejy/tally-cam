@@ -42,6 +42,7 @@ def main():
     ap.add_argument("--conf", type=float, default=0.10, help="이보다 낮은 검출은 버림")
     ap.add_argument("--agnostic", action="store_true"); ap.add_argument("--anchor", default="center")
     ap.add_argument("--dedup", type=float, default=0.0); ap.add_argument("--ext", type=float, default=0.0)
+    ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf)를 npz로 저장(분석용)")
     a = ap.parse_args()
     z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
     lines = json.loads(Path(a.lines).read_text(encoding="utf-8"))
@@ -55,6 +56,7 @@ def main():
     det = det[det[:, 5] >= a.conf]
     starts = np.searchsorted(det[:, 0], np.arange(F + 1))
     last, counted, events = {}, set(), []
+    dump = []
     t0 = time.perf_counter()
     for f in range(F):
         d = det[starts[f]:starts[f + 1]]
@@ -64,6 +66,7 @@ def main():
         out = trk.update(D, None) if len(D) or True else []
         for x1, y1, x2, y2, tid, sc, cl, _ in (out if len(out) else []):
             tid = int(tid)
+            if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc))
             cur = ((x1 + x2) / 2, y2) if a.anchor == "bottom" else ((x1 + x2) / 2, (y1 + y2) / 2)
             prev = last.get(tid); last[tid] = cur
             if prev is None: continue
@@ -77,6 +80,7 @@ def main():
                 if a.dedup and any(e["line"] == L["name"] and t - e["t"] <= a.dedup and math.dist(cp, e["pt"]) <= 0.15 * L["len"] for e in events):
                     continue
                 events.append({"t": round(t, 3), "id": tid, "line": L["name"], "pt": [round(cp[0], 1), round(cp[1], 1)], "cls": int(cl)})
+    if a.dump: np.savez_compressed(a.dump, trk=np.array(dump, np.float32), fps=fps)
     track_ms = (time.perf_counter() - t0) * 1000 / max(F, 1)
     det_ms = float(np.mean(z["det_ms"]))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
