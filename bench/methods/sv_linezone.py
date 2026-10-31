@@ -18,7 +18,7 @@ a = ap.parse_args()
 z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
 det = det[det[:, 5] >= a.conf]; starts = np.searchsorted(det[:, 0], np.arange(F + 1))
 args = SimpleNamespace(tracker_type="bytetrack", track_high_thresh=0.25, track_low_thresh=0.1, new_track_thresh=0.25, track_buffer=30, match_thresh=0.8, fuse_score=True)
-trk = BYTETracker(args, frame_rate=round(fps))
+trk = BYTETracker(args)
 lines = json.loads(Path(a.lines).read_text(encoding="utf-8"))
 zones = {L["name"]: sv.LineZone(start=sv.Point(*L["p1"]), end=sv.Point(*L["p2"])) for L in lines}
 events = []

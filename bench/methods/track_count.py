@@ -51,7 +51,7 @@ def main():
     args = SimpleNamespace(tracker_type=a.tracker, track_high_thresh=a.high, track_low_thresh=a.low, new_track_thresh=a.new,
                            track_buffer=a.buffer, match_thresh=a.match, fuse_score=True, gmc_method="none",
                            proximity_thresh=0.5, appearance_thresh=0.8, with_reid=False, model="auto")
-    trk = (BOTSORT if a.tracker == "botsort" else BYTETracker)(args, frame_rate=round(fps))
+    trk = (BOTSORT if a.tracker == "botsort" else BYTETracker)(args)
     det = det[det[:, 5] >= a.conf]
     starts = np.searchsorted(det[:, 0], np.arange(F + 1))
     last, counted, events = {}, set(), []
