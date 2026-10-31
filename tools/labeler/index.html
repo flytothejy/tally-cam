@@ -267,7 +267,8 @@
     for (const L0 of GATES) {
       const L = Object.assign({}, L0, { height: laneHeight(L0) });
       const sec = document.createElement('section'); sec.className = 'lanes'; sec.setAttribute('aria-label', `${L.label} 시공간 띠`);
-      sec.innerHTML = `<div class="lanehead"><h2>${L.label}</h2><span class="note">${L.note || ''}</span><span class="cnt"></span></div>
+      const made = String(SRC[L.name]).startsWith('blob:');
+      sec.innerHTML = `<div class="lanehead"><h2>${L.label}</h2><span class="note">${L.note || ''}</span><span class="mono" style="font-size:11.5px">선 (${L.p1.map(Math.round)}) → (${L.p2.map(Math.round)})${made ? ' · <b style="color:var(--amber)">브라우저에서 새로 만든 띠</b>' : ' · 미리 만든 띠'}</span><span class="cnt"></span></div>
         <div class="scroller"><div class="track"><div class="strip"><img alt="${L.label} 기준선의 시공간 이미지" src="${SRC[L.name]}"></div><div class="ruler"></div><div class="playhead"></div></div></div>`;
       box.appendChild(sec);
       const q = s => sec.querySelector(s);
