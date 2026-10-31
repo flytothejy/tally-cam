@@ -178,6 +178,7 @@
     <div class="gsum" id="gSum"></div>
     <div class="row">
       <button id="gAdd">+ 기준선 추가</button>
+      <label class="mono" title="끌 때 Shift를 누르고 있어도 같아요"><input type="checkbox" id="gLock" checked> 기울기 고정 (끝점은 같은 직선 위로만)</label>
       <label class="mono" for="gSets">불러오기</label><select id="gSets" aria-label="저장된 기준선 세트"></select>
       <button id="gJson" title="counter/lines/&lt;카메라&gt;.json 형식으로 복사">JSON 복사</button>
       <span style="margin-left:auto"></span>
@@ -885,6 +886,13 @@
     const L = draft[gdrag.i];
     if (gdrag.part === 'both') { const dx = clamp(x - gdrag.x0, -Math.min(gdrag.o1[0], gdrag.o2[0]), W - 1 - Math.max(gdrag.o1[0], gdrag.o2[0])), dy = clamp(y - gdrag.y0, -Math.min(gdrag.o1[1], gdrag.o2[1]), H - 1 - Math.max(gdrag.o1[1], gdrag.o2[1]));
       L.p1 = [Math.round(gdrag.o1[0] + dx), Math.round(gdrag.o1[1] + dy)]; L.p2 = [Math.round(gdrag.o2[0] + dx), Math.round(gdrag.o2[1] + dy)]; }
+    else if (gdrag.o1 && ($('gLock').checked !== e.shiftKey)) {
+      // 기울기 고정: 반대쪽 끝점을 기준으로, 원래 방향의 직선 위에서만 움직임(단, Shift로 잠깐 반대로)
+      const [ax, ay] = gdrag.part === 'p1' ? gdrag.o2 : gdrag.o1, [bx, by] = gdrag.part === 'p1' ? gdrag.o1 : gdrag.o2;
+      const vx = bx - ax, vy = by - ay, n = Math.hypot(vx, vy) || 1, ux = vx / n, uy = vy / n;
+      const t = Math.max(10, (x - ax) * ux + (y - ay) * uy);
+      L[gdrag.part] = [Math.round(clamp(ax + ux * t, 0, W - 1)), Math.round(clamp(ay + uy * t, 0, H - 1))];
+    }
     else L[gdrag.part] = [Math.round(x), Math.round(y)];
     const row = $('gRows').querySelector(`.grow[data-i="${gdrag.i}"] .gc`); if (row) row.textContent = coordText(L);
   });
