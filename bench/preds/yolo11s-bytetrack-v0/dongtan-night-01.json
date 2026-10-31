@@ -1,0 +1,1173 @@
+{
+  "source": "dongtan_night_01.mp4",
+  "model": "yolo11s.pt",
+  "imgsz": 960,
+  "stride": 1,
+  "conf": 0.1,
+  "video_seconds": 150.0,
+  "processed_frames": 4497,
+  "counts": {
+    "seoul": 76,
+    "busan": 89
+  },
+  "total": 165,
+  "infer_ms_avg": 353.9,
+  "realtime_factor": 0.09,
+  "events": [
+    {
+      "t": 2.77,
+      "id": 34,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 3.5,
+      "id": 25,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 4.34,
+      "id": 39,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 5.1,
+      "id": 46,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 5.64,
+      "id": 75,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 6.71,
+      "id": 77,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 7.11,
+      "id": 87,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 7.97,
+      "id": 78,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 8.84,
+      "id": 111,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 10.48,
+      "id": 145,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 12.81,
+      "id": 204,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 13.55,
+      "id": 233,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 13.71,
+      "id": 169,
+      "line": "seoul",
+      "side": 1,
+      "cls": "truck"
+    },
+    {
+      "t": 15.01,
+      "id": 240,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 15.31,
+      "id": 246,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 17.95,
+      "id": 294,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 20.45,
+      "id": 396,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 20.48,
+      "id": 366,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 20.48,
+      "id": 398,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 20.62,
+      "id": 376,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 20.75,
+      "id": 357,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 21.52,
+      "id": 393,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 22.22,
+      "id": 404,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 23.39,
+      "id": 436,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 26.32,
+      "id": 487,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 26.72,
+      "id": 526,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 27.59,
+      "id": 551,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 28.69,
+      "id": 570,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 28.82,
+      "id": 560,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 30.39,
+      "id": 569,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 30.66,
+      "id": 615,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 30.99,
+      "id": 567,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 31.23,
+      "id": 623,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 32.66,
+      "id": 656,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 33.56,
+      "id": 674,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 34.43,
+      "id": 692,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 35.06,
+      "id": 713,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 36.36,
+      "id": 734,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 36.5,
+      "id": 624,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 37.1,
+      "id": 762,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 37.5,
+      "id": 735,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 38.97,
+      "id": 817,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 39.83,
+      "id": 938,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 40.03,
+      "id": 870,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 40.17,
+      "id": 905,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 40.47,
+      "id": 896,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 41.14,
+      "id": 995,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 41.6,
+      "id": 985,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 42.17,
+      "id": 975,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 43.27,
+      "id": 1023,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 43.57,
+      "id": 1013,
+      "line": "seoul",
+      "side": 1,
+      "cls": "truck"
+    },
+    {
+      "t": 44.3,
+      "id": 1025,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 44.37,
+      "id": 1057,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 45.24,
+      "id": 1055,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 45.51,
+      "id": 1090,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 46.34,
+      "id": 1058,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 46.54,
+      "id": 1124,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 46.91,
+      "id": 1117,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 47.01,
+      "id": 1166,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 48.68,
+      "id": 1221,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 49.64,
+      "id": 1225,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 50.44,
+      "id": 1265,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 52.08,
+      "id": 1263,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 53.05,
+      "id": 1340,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 53.45,
+      "id": 1321,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 53.48,
+      "id": 1361,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 53.65,
+      "id": 1369,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 54.45,
+      "id": 1393,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 56.05,
+      "id": 1437,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 56.12,
+      "id": 1495,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 56.35,
+      "id": 1435,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 57.02,
+      "id": 1517,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 57.08,
+      "id": 1448,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 58.18,
+      "id": 1518,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 58.25,
+      "id": 1538,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 58.62,
+      "id": 1514,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 59.48,
+      "id": 1548,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 59.62,
+      "id": 1616,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 60.09,
+      "id": 1608,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 64.66,
+      "id": 1718,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 64.82,
+      "id": 1703,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 64.82,
+      "id": 1731,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 64.96,
+      "id": 1662,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 65.02,
+      "id": 1733,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 65.99,
+      "id": 1729,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 66.36,
+      "id": 1687,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 67.09,
+      "id": 1734,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 70.06,
+      "id": 1768,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 70.76,
+      "id": 1844,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 72.83,
+      "id": 1873,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 73.5,
+      "id": 1920,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 73.8,
+      "id": 1928,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 75.2,
+      "id": 1913,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 77.63,
+      "id": 2010,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 78.2,
+      "id": 2024,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 78.83,
+      "id": 2035,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 80.9,
+      "id": 2002,
+      "line": "seoul",
+      "side": 1,
+      "cls": "truck"
+    },
+    {
+      "t": 81.37,
+      "id": 2069,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 81.37,
+      "id": 2070,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 82.44,
+      "id": 2100,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 82.44,
+      "id": 2128,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 82.67,
+      "id": 2091,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 83.24,
+      "id": 2121,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 84.17,
+      "id": 2172,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 84.34,
+      "id": 2160,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 85.64,
+      "id": 2221,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 85.94,
+      "id": 2215,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 86.57,
+      "id": 2231,
+      "line": "seoul",
+      "side": 1,
+      "cls": "truck"
+    },
+    {
+      "t": 87.31,
+      "id": 2293,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 87.98,
+      "id": 2296,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 89.21,
+      "id": 2359,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 90.34,
+      "id": 2259,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 92.15,
+      "id": 2375,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 92.15,
+      "id": 2406,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 93.91,
+      "id": 2449,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 95.45,
+      "id": 2477,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 97.78,
+      "id": 2491,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 101.75,
+      "id": 2560,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 102.29,
+      "id": 2511,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 103.09,
+      "id": 2570,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 103.49,
+      "id": 2628,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 103.89,
+      "id": 2654,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 104.22,
+      "id": 2597,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 106.09,
+      "id": 2703,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 106.16,
+      "id": 2606,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 106.19,
+      "id": 2746,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 106.53,
+      "id": 2765,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 107.93,
+      "id": 2792,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 108.73,
+      "id": 2826,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 110.13,
+      "id": 2871,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 110.43,
+      "id": 2867,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 110.53,
+      "id": 2899,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 110.56,
+      "id": 2894,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 111.26,
+      "id": 2870,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 111.36,
+      "id": 2900,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 113.36,
+      "id": 2921,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 114.2,
+      "id": 2964,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 114.23,
+      "id": 2971,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 116.6,
+      "id": 3040,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 117.3,
+      "id": 2979,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 118.74,
+      "id": 3101,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 118.94,
+      "id": 3097,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 122.44,
+      "id": 3161,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 122.47,
+      "id": 3168,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 123.61,
+      "id": 3119,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 126.94,
+      "id": 3272,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 127.64,
+      "id": 3278,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 128.21,
+      "id": 3270,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 129.88,
+      "id": 3310,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 130.55,
+      "id": 3308,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 132.15,
+      "id": 3380,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 132.21,
+      "id": 3352,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 135.28,
+      "id": 3411,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 135.88,
+      "id": 3382,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 136.42,
+      "id": 3435,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 137.32,
+      "id": 3441,
+      "line": "busan",
+      "side": -1,
+      "cls": "truck"
+    },
+    {
+      "t": 140.65,
+      "id": 3489,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 140.96,
+      "id": 3491,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 141.62,
+      "id": 3502,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 141.82,
+      "id": 3504,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 144.69,
+      "id": 3538,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 144.99,
+      "id": 3520,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 146.86,
+      "id": 3558,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    },
+    {
+      "t": 148.86,
+      "id": 3564,
+      "line": "seoul",
+      "side": 1,
+      "cls": "car"
+    },
+    {
+      "t": 149.33,
+      "id": 3597,
+      "line": "busan",
+      "side": -1,
+      "cls": "car"
+    }
+  ]
+}
