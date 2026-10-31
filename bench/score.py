@@ -57,9 +57,11 @@ def match(g, p, tol):
     return [(i, j, C[i, j]) for i, j in zip(ri, ci) if C[i, j] <= tol]
 
 
-def score_clip(gt_path, pred_path, tol=1.0, windows=(10, 60), duration=None):
+def score_clip(gt_path, pred_path, tol=1.0, windows=(10, 60), duration=None, upto=None):
     gt, ranges = read_gt(gt_path)
     pred, meta = read_pred(pred_path)
+    if upto:  # 앞 upto초만 채점(검출기 비교처럼 일부만 돌린 경우)
+        ranges = [[a, min(b, upto)] for a, b in (ranges or [[0.0, upto]]) if a < upto]
     if ranges is None:
         dur = duration or meta.get("video_seconds") or max([t for _, t in gt + pred] + [0]) + 0.01
         ranges = [[0.0, float(dur)]]
@@ -115,9 +117,10 @@ def main():
     ap.add_argument("--split", default="", help="dev 또는 test만")
     ap.add_argument("--tol", type=float, default=None)
     ap.add_argument("--json", default="", help="결과 저장 경로")
+    ap.add_argument("--upto", type=float, default=None, help="앞 N초만 채점")
     a = ap.parse_args()
     if a.gt:
-        s = score_clip(a.gt, a.pred, a.tol or 1.0)
+        s = score_clip(a.gt, a.pred, a.tol or 1.0, upto=a.upto)
         table(f"{Path(a.pred).name} vs {Path(a.gt).name} (골든 {s['gold_seconds']}초)", list(s["dirs"].items()) + [("합계", total(list(s["dirs"].values())))])
         if a.json: Path(a.json).write_text(json.dumps(s, ensure_ascii=False, indent=1))
         return
