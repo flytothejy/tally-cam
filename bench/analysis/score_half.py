@@ -20,6 +20,6 @@ for M in a.method:
         txt = [l for l in (ROOT / c["gt"]).read_text().splitlines() if not l.startswith("# reviewed_ranges")]
         g = tmp / f"{c['id']}.csv"; g.write_text("\n".join(txt) + f"\n# reviewed_ranges: [[{dur / 2},{dur}]]\n")
         r = list(score_clip(g, p)["dirs"].values()); rs += r; t = total(r); per[c["id"]] = round(t["f1"] * 100, 1)
-    t = total(rs); res[M] = {"f1": round(t["f1"] * 100, 1), "recall": round(t["recall"] * 100, 1), "precision": round(t["precision"] * 100, 1), "gt": t["gt"], "per": per}
+    t = total(rs); res[M] = {"f1": round(t["f1"] * 100, 1), "recall": round((t["recall"] or 0) * 100, 1), "precision": round((t["precision"] or 0) * 100, 1), "gt": t["gt"], "per": per}
     print(f"{M:34} F1 {res[M]['f1']:5.1f}  재현율 {res[M]['recall']:5.1f}  정밀도 {res[M]['precision']:5.1f}  (정답 {t['gt']})  {per}")
 if a.json: Path(a.json).write_text(json.dumps(res, ensure_ascii=False, indent=1))
