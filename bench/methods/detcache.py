@@ -16,6 +16,7 @@ ap.add_argument("--backend", default="yolo"); ap.add_argument("--model", default
 ap.add_argument("--imgsz", type=int, default=960); ap.add_argument("--conf", type=float, default=0.05)
 ap.add_argument("--roi", default=""); ap.add_argument("--roi-margin", type=int, default=60)
 ap.add_argument("--max-seconds", type=float, default=0)
+ap.add_argument("--weights", default="", help="미세조정한 RF-DETR 가중치(.pth). 주면 모든 검출을 차(cls 2)로 봄")
 a = ap.parse_args()
 
 VEH = {2, 3, 5, 7}
@@ -28,12 +29,14 @@ if a.backend == "yolo":
 else:
     import rfdetr
     from PIL import Image
-    m = {"nano": rfdetr.RFDETRNano, "small": rfdetr.RFDETRSmall, "medium": rfdetr.RFDETRMedium}[a.model]()
+    M = {"nano": rfdetr.RFDETRNano, "small": rfdetr.RFDETRSmall, "medium": rfdetr.RFDETRMedium}[a.model]
+    m = M(pretrain_weights=a.weights) if a.weights else M()
     try: m.optimize_for_inference()
     except Exception as e: print("optimize 실패:", e)
     COCO91_TO_80 = {3: 2, 4: 3, 6: 5, 8: 7}  # rfdetr는 COCO 원래 번호(91)를 씀
     def detect(img):
         d = m.predict(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), threshold=a.conf)
+        if a.weights: return d.xyxy, d.confidence, np.full(len(d), 2)   # 미세조정 모델은 vehicle 한 클래스
         keep = np.array([c in COCO91_TO_80 for c in d.class_id], bool) if len(d) else np.zeros(0, bool)
         cls = np.array([COCO91_TO_80.get(int(c), -1) for c in d.class_id])[keep] if len(d) else np.zeros(0)
         return d.xyxy[keep], d.confidence[keep], cls

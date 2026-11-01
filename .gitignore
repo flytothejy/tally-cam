@@ -4,3 +4,4 @@ samples/
 tools/labeler/clips/*/clip.mp4
 bench/cache/
 bench/preds/**/*.pt
+data/
