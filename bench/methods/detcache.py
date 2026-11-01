@@ -5,7 +5,7 @@
   옵션: --backend yolo|rfdetr, --model (yolo 가중치 또는 rfdetr 크기 small|medium|nano)
         --roi counter/lines/x.json  : 기준선 주변만 잘라 검출(작은 차가 커짐), 박스는 전체 화면 좌표로 되돌림
         --max-seconds S            : 앞 S초만
-캐시의 cls는 COCO 80클래스 번호로 통일(2 car, 3 motorcycle, 5 bus, 7 truck).
+캐시의 cls는 COCO 80클래스 번호로 통일(2 car, 3 motorcycle, 5 bus, 7 truck, 0 person). --target person 이면 사람만.
 """
 import argparse, json, time
 import cv2, numpy as np
@@ -16,10 +16,11 @@ ap.add_argument("--backend", default="yolo"); ap.add_argument("--model", default
 ap.add_argument("--imgsz", type=int, default=960); ap.add_argument("--conf", type=float, default=0.05)
 ap.add_argument("--roi", default=""); ap.add_argument("--roi-margin", type=int, default=60)
 ap.add_argument("--max-seconds", type=float, default=0)
+ap.add_argument("--target", default="vehicle", help="vehicle(2,3,5,7) | person(0) — 무엇을 셀지")
 ap.add_argument("--weights", default="", help="미세조정한 RF-DETR 가중치(.pth). 주면 모든 검출을 차(cls 2)로 봄")
 a = ap.parse_args()
 
-VEH = {2, 3, 5, 7}
+VEH = {"vehicle": {2, 3, 5, 7}, "person": {0}}[a.target]
 if a.backend == "yolo":
     from ultralytics import YOLO
     m = YOLO(a.model)
@@ -33,7 +34,7 @@ else:
     m = M(pretrain_weights=a.weights) if a.weights else M()
     try: m.optimize_for_inference()
     except Exception as e: print("optimize 실패:", e)
-    COCO91_TO_80 = {3: 2, 4: 3, 6: 5, 8: 7}  # rfdetr는 COCO 원래 번호(91)를 씀
+    COCO91_TO_80 = {3: 2, 4: 3, 6: 5, 8: 7} if a.target == "vehicle" else {1: 0}  # rfdetr는 COCO 원래 번호(91)를 씀
     def detect(img):
         d = m.predict(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), threshold=a.conf)
         if a.weights: return d.xyxy, d.confidence, np.full(len(d), 2)   # 미세조정 모델은 vehicle 한 클래스
