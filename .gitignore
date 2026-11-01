@@ -9,3 +9,4 @@ bench/dataset_mot.json
 counter/lines/mot/
 eval/gt/mot/
 bench/preds/*MOT*/
+bench/RESULTS_mot_ref.json
