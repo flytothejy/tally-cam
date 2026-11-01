@@ -35,12 +35,12 @@
    "date": "2026-10-28",
    "video": "samples/dalraenae1_am_01.mp4",
    "gates": "counter/lines/dalraenae1-am-01.json",
-   "gt": "eval/gt/dalraenae1_am_01_v1.csv",
+   "gt": "eval/gt/dalraenae1_am_01_v2.csv",
    "split": "dev",
    "light": "day",
    "density": "dense",
    "view": "mixed",
-   "note": "150초 전체 라벨링, 기준선은 라벨링 때 사용자가 고친 것(# gates)"
+   "note": "v2(11/01, 중복 정리 후 재검토, 482대)가 정답. v1(517대)은 기준선 연장 때 생긴 중복 라벨 포함"
   },
   {
    "id": "seocho-am-01",
