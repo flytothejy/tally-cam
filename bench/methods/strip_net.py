@@ -135,13 +135,31 @@ def f1_at(dets, items, th):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--iters", type=int, default=1500)
-    ap.add_argument("--split", default="dev"); a = ap.parse_args()
+    ap.add_argument("--split", default="dev")
+    ap.add_argument("--mode", default="camera", help="camera: 카메라 하나 빼고 학습 / time: 모든 클립 앞 절반으로 학습, 뒤 절반 평가(카메라별 소량 라벨 상황)")
+    a = ap.parse_args()
     torch.set_num_threads(2)
     ds = json.loads((ROOT / "bench/dataset.json").read_text())
     clips = [c for c in ds["clips"] if c["split"] == a.split and c["gt"]]
     data = {c["id"]: load_clip(c) for c in clips}
     cams = sorted({c["camera"] for c in clips}); out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     summary = {}
+    if a.mode == "time":
+        trn = []
+        for c in clips:
+            for it in data[c["id"]]:
+                h = dict(it); m = it["mask"].copy(); m[len(m) // 2:] = 0; h["mask"] = m; trn.append(h)
+        print(f"== 앞 절반 학습: {len(trn)}개 띠", flush=True)
+        net = train(trn, a.iters, log=lambda s: print(s, flush=True))
+        dt = {(it["clip"], it["line"]): predict(net, it) for it in trn}
+        th = max(np.arange(0.1, 0.9, 0.05), key=lambda v: f1_at(dt, trn, v))
+        print(f"  임계값 {th:.2f} (학습 F1 {f1_at(dt, trn, th) * 100:.1f})", flush=True)
+        for c in clips:
+            evs = [{"t": round(t, 3), "line": it["line"], "pos": round(p, 3), "score": round(s, 3)} for it in data[c["id"]] for t, p, s in dt[(it["clip"], it["line"])] if s >= th]
+            T = data[c["id"]][0]["x"].shape[2]; fps = data[c["id"]][0]["fps"]
+            (out / f"{c['id']}.json").write_text(json.dumps({"method": {"name": "strip_net", "mode": "time", "iters": a.iters, "th": round(float(th), 2), "eval_from_sec": round(T / fps / 2, 2)},
+                "video_seconds": round(T / fps, 2), "events": sorted(evs, key=lambda e: e["t"])}, ensure_ascii=False))
+        torch.save(net.state_dict(), out / "net_time.pt"); return
     for cam in cams:
         test = [c for c in clips if c["camera"] == cam]; trn = [it for c in clips if c["camera"] != cam for it in data[c["id"]]]
         print(f"== 빼는 카메라 {cam}: 학습 {len(trn)}개 띠 ({sum(len(i['pts']) for i in trn)}점)", flush=True)
