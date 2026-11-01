@@ -5,3 +5,7 @@ tools/labeler/clips/*/clip.mp4
 bench/cache/
 bench/preds/**/*.pt
 data/
+bench/dataset_mot.json
+counter/lines/mot/
+eval/gt/mot/
+bench/preds/*MOT*/
