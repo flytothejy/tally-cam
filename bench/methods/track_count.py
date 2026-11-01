@@ -42,6 +42,8 @@ def main():
     ap.add_argument("--conf", type=float, default=0.10, help="이보다 낮은 검출은 버림")
     ap.add_argument("--agnostic", action="store_true"); ap.add_argument("--anchor", default="center")
     ap.add_argument("--dedup", type=float, default=0.0); ap.add_argument("--ext", type=float, default=0.0)
+    ap.add_argument("--oneway", action="store_true", help="기준선마다 다수 통과 방향을 정하고 반대로 지난 통과는 버림(반대 차로 차 섞임 방지)")
+    ap.add_argument("--lost", type=float, default=0.0, help="선 앞에서 선을 향하다 사라진 트랙을 셈: 선까지 거리가 상자 높이×이 값 이하일 때(0=끔, --oneway 필요)")
     ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf)를 npz로 저장(분석용)")
     a = ap.parse_args()
     z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
@@ -52,34 +54,60 @@ def main():
     args = SimpleNamespace(tracker_type=a.tracker, track_high_thresh=a.high, track_low_thresh=a.low, new_track_thresh=a.new,
                            track_buffer=a.buffer, match_thresh=a.match, fuse_score=True, gmc_method="none",
                            proximity_thresh=0.5, appearance_thresh=0.8, with_reid=False, model="auto")
-    trk = (BOTSORT if a.tracker == "botsort" else BYTETracker)(args)
-    det = det[det[:, 5] >= a.conf]
-    starts = np.searchsorted(det[:, 0], np.arange(F + 1))
-    last, counted, events = {}, set(), []
-    dump = []
-    t0 = time.perf_counter()
-    for f in range(F):
-        d = det[starts[f]:starts[f + 1]]
-        if len(d) and a.agnostic:
-            keep = torchvision.ops.nms(torch.tensor(d[:, 1:5]), torch.tensor(d[:, 5]), 0.6).numpy(); d = d[np.sort(keep)]
-        D = Dets(d[:, 1:5].astype(np.float32), d[:, 5].astype(np.float32), d[:, 6].astype(np.float32))
-        out = trk.update(D, None) if len(D) or True else []
-        for x1, y1, x2, y2, tid, sc, cl, _ in (out if len(out) else []):
-            tid = int(tid)
-            if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc))
-            cur = ((x1 + x2) / 2, y2) if a.anchor == "bottom" else ((x1 + x2) / 2, (y1 + y2) / 2)
-            prev = last.get(tid); last[tid] = cur
-            if prev is None: continue
-            for L in lines:
-                key = (L["name"], tid)
-                if key in counted: continue
-                cp = cross_pt(prev, cur, L["q1"], L["q2"])
-                if cp is None: continue
-                counted.add(key)
-                t = f / fps
-                if a.dedup and any(e["line"] == L["name"] and t - e["t"] <= a.dedup and math.dist(cp, e["pt"]) <= 0.15 * L["len"] for e in events):
-                    continue
-                events.append({"t": round(t, 3), "id": tid, "line": L["name"], "pt": [round(cp[0], 1), round(cp[1], 1)], "cls": int(cl)})
+    def run(major=None):
+        trk = (BOTSORT if a.tracker == "botsort" else BYTETracker)(args)
+        dd = det[det[:, 5] >= a.conf]
+        starts = np.searchsorted(dd[:, 0], np.arange(F + 1))
+        last, counted, events = {}, set(), []
+        hist = {}   # tid → 최근 (f, cx, cy, h)
+        dump = []
+        t0 = time.perf_counter()
+        for f in range(F):
+            d = dd[starts[f]:starts[f + 1]]
+            if len(d) and a.agnostic:
+                keep = torchvision.ops.nms(torch.tensor(d[:, 1:5]), torch.tensor(d[:, 5]), 0.6).numpy(); d = d[np.sort(keep)]
+            D = Dets(d[:, 1:5].astype(np.float32), d[:, 5].astype(np.float32), d[:, 6].astype(np.float32))
+            out = trk.update(D, None) if len(D) or True else []
+            for x1, y1, x2, y2, tid, sc, cl, _ in (out if len(out) else []):
+                tid = int(tid)
+                if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc))
+                cur = ((x1 + x2) / 2, y2) if a.anchor == "bottom" else ((x1 + x2) / 2, (y1 + y2) / 2)
+                prev = last.get(tid); last[tid] = cur
+                hh = hist.setdefault(tid, []); hh.append((f, cur[0], cur[1], y2 - y1)); del hh[:-8]
+                if prev is None: continue
+                for L in lines:
+                    key = (L["name"], tid)
+                    if key in counted: continue
+                    cp = cross_pt(prev, cur, L["q1"], L["q2"])
+                    if cp is None: continue
+                    if major and side(L["q1"], L["q2"], cur) != major.get(L["name"], 0): continue   # 반대 방향 통과는 세지 않고, 이 트랙은 계속 지켜봄
+                    counted.add(key)
+                    t = f / fps
+                    if a.dedup and any(e["line"] == L["name"] and t - e["t"] <= a.dedup and math.dist(cp, e["pt"]) <= 0.15 * L["len"] for e in events):
+                        continue
+                    events.append({"t": round(t, 3), "id": tid, "line": L["name"], "pt": [round(cp[0], 1), round(cp[1], 1)], "cls": int(cl), "sgn": side(L["q1"], L["q2"], cur)})
+        if major and a.lost:   # 사라진 트랙 외삽: 마지막 위치가 선 앞(반대편)이고 선을 향해 움직였으면 닿는 시각에 셈
+            for tid, hh in hist.items():
+                if len(hh) < 4 or hh[-1][0] > F - 1 - 30: continue
+                (f0, x0, y0, _), (f1, x1, y1, h1) = hh[0], hh[-1]
+                vx, vy = (x1 - x0) / max(f1 - f0, 1), (y1 - y0) / max(f1 - f0, 1)
+                for L in lines:
+                    if (L["name"], tid) in counted or side(L["q1"], L["q2"], (x1, y1)) == major.get(L["name"], 0): continue
+                    reach = a.lost * h1; tgt = (x1 + vx * reach / max(math.hypot(vx, vy), 1e-6), y1 + vy * reach / max(math.hypot(vx, vy), 1e-6))
+                    cp = cross_pt((x1, y1), tgt, L["q1"], L["q2"])
+                    if cp is None or side(L["q1"], L["q2"], tgt) != major[L["name"]]: continue
+                    sp = math.hypot(vx, vy); dtf = math.dist((x1, y1), cp) / max(sp, 1e-6)
+                    counted.add((L["name"], tid))
+                    events.append({"t": round((f1 + dtf) / fps, 3), "id": tid, "line": L["name"], "pt": [round(cp[0], 1), round(cp[1], 1)], "cls": -1, "sgn": major[L["name"]], "lost": True})
+            events.sort(key=lambda e: e["t"])
+        return events, dump, t0
+    events, dump, t0 = run()
+    if a.oneway:   # 1차: 선마다 다수 통과 방향을 정함 → 2차: 그 방향 통과만 셈(방향을 미리 몰라도 됨)
+        major = {}
+        for L in lines:
+            sg = [e["sgn"] for e in events if e["line"] == L["name"]]
+            major[L["name"]] = 1 if sum(sg) >= 0 else -1
+        events, dump, t0 = run(major)
     if a.dump: np.savez_compressed(a.dump, trk=np.array(dump, np.float32), fps=fps)
     track_ms = (time.perf_counter() - t0) * 1000 / max(F, 1)
     det_ms = float(np.mean(z["det_ms"]))
