@@ -42,6 +42,7 @@ def main():
     ap.add_argument("--conf", type=float, default=0.10, help="이보다 낮은 검출은 버림")
     ap.add_argument("--agnostic", action="store_true"); ap.add_argument("--anchor", default="center")
     ap.add_argument("--dedup", type=float, default=0.0); ap.add_argument("--ext", type=float, default=0.0)
+    ap.add_argument("--stride", type=int, default=1, help="N프레임마다만 추적(검출을 N프레임마다 한 경우)")
     ap.add_argument("--oneway", action="store_true", help="기준선마다 다수 통과 방향을 정하고 반대로 지난 통과는 버림(반대 차로 차 섞임 방지)")
     ap.add_argument("--lost", type=float, default=0.0, help="선 앞에서 선을 향하다 사라진 트랙을 셈: 선까지 거리가 상자 높이×이 값 이하일 때(0=끔, --oneway 필요)")
     ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf)를 npz로 저장(분석용)")
@@ -62,7 +63,7 @@ def main():
         hist = {}   # tid → 최근 (f, cx, cy, h)
         dump = []
         t0 = time.perf_counter()
-        for f in range(F):
+        for f in range(0, F, a.stride):
             d = dd[starts[f]:starts[f + 1]]
             if len(d) and a.agnostic:
                 keep = torchvision.ops.nms(torch.tensor(d[:, 1:5]), torch.tensor(d[:, 5]), 0.6).numpy(); d = d[np.sort(keep)]

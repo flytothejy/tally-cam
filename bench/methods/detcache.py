@@ -16,6 +16,7 @@ ap.add_argument("--backend", default="yolo"); ap.add_argument("--model", default
 ap.add_argument("--imgsz", type=int, default=960); ap.add_argument("--conf", type=float, default=0.05)
 ap.add_argument("--roi", default=""); ap.add_argument("--roi-margin", type=int, default=60)
 ap.add_argument("--max-seconds", type=float, default=0)
+ap.add_argument("--stride", type=int, default=1, help="N프레임마다 한 번만 검출(나머지는 건너뜀, 프레임 번호는 그대로)")
 ap.add_argument("--from-seconds", type=float, default=0, help="이 시각 전 프레임은 검출하지 않음(프레임 번호는 그대로)")
 ap.add_argument("--prompt", default="", help="gdino/owlv2: 셀 대상을 글자로(예: 'car. truck. bus.') — 대상별 사전학습 검출기 없이")
 ap.add_argument("--target", default="vehicle", help="vehicle(2,3,5,7) | person(0) — 무엇을 셀지")
@@ -75,7 +76,7 @@ if a.roi:
     roi = (x0, y0, x1, y1); print("ROI", roi)
 rows, ms, f = [], [], 0
 while True:
-    if f < a.from_seconds * fps:
+    if f < a.from_seconds * fps or f % a.stride:
         if not cap.grab(): break
         f += 1; continue
     ok, img = cap.read()
