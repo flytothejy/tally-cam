@@ -16,6 +16,8 @@ ap.add_argument("--backend", default="yolo"); ap.add_argument("--model", default
 ap.add_argument("--imgsz", type=int, default=960); ap.add_argument("--conf", type=float, default=0.05)
 ap.add_argument("--roi", default=""); ap.add_argument("--roi-margin", type=int, default=60)
 ap.add_argument("--max-seconds", type=float, default=0)
+ap.add_argument("--from-seconds", type=float, default=0, help="이 시각 전 프레임은 검출하지 않음(프레임 번호는 그대로)")
+ap.add_argument("--prompt", default="", help="gdino/owlv2: 셀 대상을 글자로(예: 'car. truck. bus.') — 대상별 사전학습 검출기 없이")
 ap.add_argument("--target", default="vehicle", help="vehicle(2,3,5,7) | person(0) — 무엇을 셀지")
 ap.add_argument("--weights", default="", help="미세조정한 RF-DETR 가중치(.pth). 주면 모든 검출을 차(cls 2)로 봄")
 a = ap.parse_args()
@@ -27,6 +29,28 @@ if a.backend == "yolo":
     def detect(img):
         r = m.predict(img, imgsz=a.imgsz, conf=a.conf, classes=sorted(VEH), verbose=False)[0]
         return r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy(), r.boxes.cls.cpu().numpy()
+elif a.backend in ("gdino", "owlv2"):   # 2단계: 글자로 지정하는 검출기(대상 클래스 학습 없음). 모든 검출을 cls 2로 저장
+    import torch
+    from PIL import Image
+    from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection, Owlv2Processor, Owlv2ForObjectDetection
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    phrases = [t.strip() for t in a.prompt.split(".") if t.strip()]
+    if a.backend == "gdino":
+        mid = a.model if "/" in a.model else "IDEA-Research/grounding-dino-tiny"
+        proc = AutoProcessor.from_pretrained(mid); net = AutoModelForZeroShotObjectDetection.from_pretrained(mid).to(dev).eval()
+        def detect(img):
+            im = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)); inp = proc(images=im, text=". ".join(phrases) + ".", return_tensors="pt").to(dev)
+            with torch.no_grad(): o = net(**inp)
+            r = proc.post_process_grounded_object_detection(o, inp.input_ids, threshold=a.conf, text_threshold=a.conf, target_sizes=[im.size[::-1]])[0]
+            return r["boxes"].cpu().numpy(), r["scores"].cpu().numpy(), np.full(len(r["scores"]), 2)
+    else:
+        mid = a.model if "/" in a.model else "google/owlv2-base-patch16-ensemble"
+        proc = Owlv2Processor.from_pretrained(mid); net = Owlv2ForObjectDetection.from_pretrained(mid).to(dev).eval()
+        def detect(img):
+            im = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)); inp = proc(text=[[f"a photo of a {t}" for t in phrases]], images=im, return_tensors="pt").to(dev)
+            with torch.no_grad(): o = net(**inp)
+            S = max(im.size); r = proc.post_process_grounded_object_detection(o, threshold=a.conf, target_sizes=torch.tensor([[S, S]], device=dev))[0]
+            return r["boxes"].cpu().numpy(), r["scores"].cpu().numpy(), np.full(len(r["scores"]), 2)
 else:
     import rfdetr
     from PIL import Image
@@ -51,6 +75,9 @@ if a.roi:
     roi = (x0, y0, x1, y1); print("ROI", roi)
 rows, ms, f = [], [], 0
 while True:
+    if f < a.from_seconds * fps:
+        if not cap.grab(): break
+        f += 1; continue
     ok, img = cap.read()
     if not ok or (a.max_seconds and f >= a.max_seconds * fps): break
     t0 = time.perf_counter()

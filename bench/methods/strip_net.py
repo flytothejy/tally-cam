@@ -86,7 +86,8 @@ def focal(logit, y, m):
 def sample(items, rng, CP=128, CT=256):
     it = items[rng.integers(len(items))]; x, P, T = it["x"], it["x"].shape[1], it["x"].shape[2]
     s = rng.uniform(0.8, 1.25)                 # 시간축 신축(속도 변화)
-    ct = min(T - 1, int(CT * s)); t0 = rng.integers(0, T - ct); p0 = rng.integers(0, max(1, P - CP + 1)); cp = min(CP, P)
+    ct = min(T - 1, int(CT * s)); mk = np.flatnonzero(it["mask"])
+    t0 = int(np.clip(rng.choice(mk) - rng.integers(0, ct), 0, T - ct)) if 0 < len(mk) < T else rng.integers(0, T - ct); p0 = rng.integers(0, max(1, P - CP + 1)); cp = min(CP, P)
     xc = torch.from_numpy(x[:, p0:p0 + cp, t0:t0 + ct])[None]
     xc = F.interpolate(xc, size=(cp, CT), mode="bilinear", align_corners=False)[0]
     pts = [((p - p0), (t - t0) * CT / ct) for p, t in it["pts"] if p0 - 8 <= p < p0 + cp + 8 and t0 - 20 <= t < t0 + ct + 20]
@@ -101,9 +102,11 @@ def sample(items, rng, CP=128, CT=256):
     return xc, torch.from_numpy(y), torch.from_numpy(mm)
 
 
-def train(items, iters, seed=0, bs=8, log=None):
+def train(items, iters, seed=0, bs=8, log=None, init=""):
     torch.manual_seed(seed); rng = np.random.default_rng(seed)
-    net = Net(); opt = torch.optim.AdamW(net.parameters(), 2e-3, weight_decay=1e-4)
+    net = Net()
+    if init: net.load_state_dict(torch.load(init))
+    opt = torch.optim.AdamW(net.parameters(), 2e-3, weight_decay=1e-4)
     sch = torch.optim.lr_scheduler.OneCycleLR(opt, 2e-3, total_steps=iters, pct_start=0.1)
     net.train(); t0 = time.time()
     for i in range(iters):
@@ -136,14 +139,36 @@ def f1_at(dets, items, th):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--iters", type=int, default=1500)
     ap.add_argument("--split", default="dev")
+    ap.add_argument("--dataset", default="bench/dataset.json"); ap.add_argument("--k", type=int, default=50, help="budget: 클립마다 앞쪽에서 점 K개가 들어가는 구간만 라벨이 있다고 봄")
+    ap.add_argument("--init", default="", help="다른 대상에서 미리 학습한 가중치(.pt)로 시작")
     ap.add_argument("--mode", default="camera", help="camera: 카메라 하나 빼고 학습 / time: 모든 클립 앞 절반으로 학습, 뒤 절반 평가(카메라별 소량 라벨 상황)")
     a = ap.parse_args()
     torch.set_num_threads(2)
-    ds = json.loads((ROOT / "bench/dataset.json").read_text())
+    ds = json.loads((ROOT / a.dataset).read_text())
     clips = [c for c in ds["clips"] if c["split"] == a.split and c["gt"]]
     data = {c["id"]: load_clip(c) for c in clips}
     cams = sorted({c["camera"] for c in clips}); out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     summary = {}
+    if a.mode == "budget":   # 처음 보는 대상: 클립마다 앞쪽 점 K개 구간만 라벨 → 뒤 절반으로 평가
+        trn = []; info = {}
+        for c in clips:
+            its = data[c["id"]]; fps = its[0]["fps"]; T = its[0]["x"].shape[2]; half = T // 2
+            ts = sorted(t for it in its for _, t in it["pts"] if t < half)
+            end = half if len(ts) < a.k else min(half, int(ts[a.k - 1] + 0.5 * fps))
+            info[c["id"]] = {"label_sec": round(end / fps, 1), "points": sum(1 for t in ts if t < end)}
+            for it in its:
+                h = dict(it); m = np.zeros_like(it["mask"]); m[:end] = it["mask"][:end]; h["mask"] = m; trn.append(h)
+        print(f"== 점 예산 K={a.k}: {info}", flush=True)
+        net = train(trn, a.iters, log=lambda s: print(s, flush=True), init=a.init)
+        dt = {(it["clip"], it["line"]): predict(net, it) for c in clips for it in data[c["id"]]}
+        th = max(np.arange(0.1, 0.9, 0.05), key=lambda v: f1_at(dt, trn, v))
+        print(f"  임계값 {th:.2f}", flush=True)
+        for c in clips:
+            evs = [{"t": round(t, 3), "line": it["line"], "pos": round(p, 3), "score": round(s, 3)} for it in data[c["id"]] for t, p, s in dt[(it["clip"], it["line"])] if s >= th]
+            T = data[c["id"]][0]["x"].shape[2]; fps = data[c["id"]][0]["fps"]
+            (out / f"{c['id']}.json").write_text(json.dumps({"method": {"name": "strip_net", "mode": "budget", "k": a.k, "init": a.init, "th": round(float(th), 2),
+                "eval_from_sec": round(T / fps / 2, 2), **info[c["id"]]}, "video_seconds": round(T / fps, 2), "events": sorted(evs, key=lambda e: e["t"])}, ensure_ascii=False))
+        torch.save(net.state_dict(), out / "net.pt"); return
     if a.mode == "time":
         trn = []
         for c in clips:
