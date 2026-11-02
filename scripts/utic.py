@@ -70,6 +70,7 @@ def main():
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("list"); p.add_argument("--refresh", action="store_true"); p.add_argument("--center"); p.add_argument("--grep")
     p = sub.add_parser("info"); p.add_argument("cctvid")
+    p = sub.add_parser("snap", help="여러 카메라 화면 한 장씩(후보 고르기). ids 파일 한 줄에 ID 하나"); p.add_argument("ids"); p.add_argument("--outdir", default="samples/utic/snaps")
     p = sub.add_parser("rec"); p.add_argument("cctvid"); p.add_argument("--seconds", type=int, default=120); p.add_argument("--out", required=True)
     a = ap.parse_args()
     if a.cmd == "list":
@@ -80,6 +81,20 @@ def main():
     elif a.cmd == "info":
         i = info(a.cctvid); print(json.dumps({k: v for k, v in i.items() if k not in ("PASSWD",)}, ensure_ascii=False))
         print("HLS:", "있음" if stream_url(i) else "없음(기관별 플레이어 형식)")
+    elif a.cmd == "snap":
+        out = Path(a.outdir); out.mkdir(parents=True, exist_ok=True); meta = {}
+        mp = out / "meta.json"
+        if mp.exists(): meta = json.loads(mp.read_text(encoding="utf-8"))
+        for cid in [l.strip() for l in Path(a.ids).read_text().splitlines() if l.strip()]:
+            if (out / f"{cid}.jpg").exists(): continue
+            try:
+                i = info(cid); u = stream_url(i)
+                if not u: meta[cid] = {"name": i.get("CCTVNAME"), "ok": False}; continue
+                r = subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", u, "-frames:v", "1", str(out / f"{cid}.jpg")], capture_output=True, timeout=40)
+                meta[cid] = {"name": i.get("CCTVNAME"), "center": i.get("CENTERNAME"), "x": i.get("XCOORD"), "y": i.get("YCOORD"), "ok": r.returncode == 0}
+            except Exception as e:
+                meta[cid] = {"ok": False, "err": clean(e)[:120]}
+            mp.write_text(json.dumps(meta, ensure_ascii=False, indent=0), encoding="utf-8"); print(cid, meta[cid].get("name"), meta[cid]["ok"], flush=True)
     else:
         i = info(a.cctvid); u = stream_url(i)
         if not u: sys.exit("HLS 주소를 찾지 못함")
