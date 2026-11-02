@@ -72,13 +72,19 @@ def main():
             for x1, y1, x2, y2, tid, sc, cl, _ in (out if len(out) else []):
                 tid = int(tid)
                 if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc))
-                cur = ((x1 + x2) / 2, y2) if a.anchor == "bottom" else ((x1 + x2) / 2, (y1 + y2) / 2)
-                prev = last.get(tid); last[tid] = cur
+                cen, bot = ((x1 + x2) / 2, (y1 + y2) / 2), ((x1 + x2) / 2, y2)
+                cur = bot if a.anchor == "bottom" else cen
+                prevs = last.get(tid); last[tid] = (cen, bot); prev = prevs and (prevs[1] if a.anchor == "bottom" else prevs[0])
                 hh = hist.setdefault(tid, []); hh.append((f, cur[0], cur[1], y2 - y1)); del hh[:-8]
                 if prev is None: continue
                 for L in lines:
                     key = (L["name"], tid)
                     if key in counted: continue
+                    if "classes" in L and int(cl) not in L["classes"]: continue   # 선마다 셀 대상(예: 사람만 [0], 차만 [2,3,5,7])
+                    if "anchor" in L:   # 선마다 기준점(사람은 발, 차는 중심)
+                        prev, cur = (prevs[1], bot) if L["anchor"] == "bottom" else (prevs[0], cen)
+                    else:
+                        cur = bot if a.anchor == "bottom" else cen; prev = prevs[1] if a.anchor == "bottom" else prevs[0]
                     cp = cross_pt(prev, cur, L["q1"], L["q2"])
                     if cp is None: continue
                     if major and side(L["q1"], L["q2"], cur) != major.get(L["name"], 0): continue   # 반대 방향 통과는 세지 않고, 이 트랙은 계속 지켜봄

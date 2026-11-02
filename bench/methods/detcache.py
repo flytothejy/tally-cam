@@ -23,7 +23,7 @@ ap.add_argument("--target", default="vehicle", help="vehicle(2,3,5,7) | person(0
 ap.add_argument("--weights", default="", help="미세조정한 RF-DETR 가중치(.pth). 주면 모든 검출을 차(cls 2)로 봄")
 a = ap.parse_args()
 
-VEH = {"vehicle": {2, 3, 5, 7}, "person": {0}}[a.target]
+VEH = {"vehicle": {2, 3, 5, 7}, "person": {0}, "all": {0, 2, 3, 5, 7}}[a.target]
 if a.backend == "yolo":
     from ultralytics import YOLO
     m = YOLO(a.model)
@@ -59,7 +59,7 @@ else:
     m = M(pretrain_weights=a.weights) if a.weights else M()
     try: m.optimize_for_inference()
     except Exception as e: print("optimize 실패:", e)
-    COCO91_TO_80 = {3: 2, 4: 3, 6: 5, 8: 7} if a.target == "vehicle" else {1: 0}  # rfdetr는 COCO 원래 번호(91)를 씀
+    COCO91_TO_80 = {"vehicle": {3: 2, 4: 3, 6: 5, 8: 7}, "person": {1: 0}, "all": {1: 0, 3: 2, 4: 3, 6: 5, 8: 7}}[a.target]  # rfdetr는 COCO 원래 번호(91)를 씀
     def detect(img):
         d = m.predict(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), threshold=a.conf)
         if a.weights: return d.xyxy, d.confidence, np.full(len(d), 2)   # 미세조정 모델은 vehicle 한 클래스
