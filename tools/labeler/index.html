@@ -849,7 +849,7 @@
     if (e.target.classList.contains('gname')) { L.name = e.target.value.trim(); e.target.classList.toggle('bad', !/^[a-z0-9_-]+$/i.test(L.name)); }
     else if (e.target.classList.contains('glabel')) L.label = e.target.value;
     else if (e.target.classList.contains('gnote')) L.note = e.target.value;
-    else if (e.target.classList.contains('gtgt')) { L.target = e.target.value; if (!L.dir) L.dir = L.target === 'person' ? 'both' : 'one'; renderGateRows(); return; }
+    else if (e.target.classList.contains('gtgt')) { L.target = e.target.value; L.dir = L.target === 'person' ? 'both' : 'one'; renderGateRows(); return; }   // 대상을 바꾸면 기본 방향도 따라감(이후 직접 바꿀 수 있음)
     else if (e.target.classList.contains('gdir')) L.dir = e.target.value;
     renderSum();
   });
