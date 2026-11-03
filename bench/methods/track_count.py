@@ -45,6 +45,8 @@ def main():
     ap.add_argument("--stride", type=int, default=1, help="N프레임마다만 추적(검출을 N프레임마다 한 경우)")
     ap.add_argument("--oneway", action="store_true", help="기준선마다 다수 통과 방향을 정하고 반대로 지난 통과는 버림(반대 차로 차 섞임 방지)")
     ap.add_argument("--lost", type=float, default=0.0, help="선 앞에서 선을 향하다 사라진 트랙을 셈: 선까지 거리가 상자 높이×이 값 이하일 때(0=끔, --oneway 필요)")
+    ap.add_argument("--rider", choices=["auto", "on", "off"], default="auto",
+                    help="오토바이·자전거 위 사람 검출을 지움(탄 사람을 보행자로 세지 않게). auto=사람을 세는 선이 있을 때만")
     ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf)를 npz로 저장(분석용)")
     a = ap.parse_args()
     z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
@@ -57,6 +59,17 @@ def main():
     for L in lines:
         p1, p2 = np.array(L["p1"], float), np.array(L["p2"], float); u = (p2 - p1) / np.linalg.norm(p2 - p1)
         L["q1"], L["q2"], L["len"] = tuple(p1 - u * a.ext), tuple(p2 + u * a.ext), float(np.linalg.norm(p2 - p1))
+    rider = a.rider == "on" or (a.rider == "auto" and any(0 in L.get("classes", []) for L in lines))
+    def drop_riders(d):
+        # 사람 상자의 발(아래 중앙)이 오토바이(3)·자전거(1) 상자(가로 10% 넓힘) 안에 있으면 탄 사람으로 보고 지움
+        tw = d[np.isin(d[:, 6], (1, 3))]
+        if not len(tw): return d
+        pi = np.where(d[:, 6] == 0)[0]
+        fx, fy = (d[pi, 1] + d[pi, 3]) / 2, d[pi, 4]
+        mx = (tw[:, 3] - tw[:, 1]) * 0.1
+        inside = ((fx[:, None] >= tw[None, :, 1] - mx) & (fx[:, None] <= tw[None, :, 3] + mx) &
+                  (fy[:, None] >= tw[None, :, 2]) & (fy[:, None] <= tw[None, :, 4] + (tw[None, :, 4] - tw[None, :, 2]) * 0.15)).any(1)
+        return np.delete(d, pi[inside], axis=0)
     args = SimpleNamespace(tracker_type=a.tracker, track_high_thresh=a.high, track_low_thresh=a.low, new_track_thresh=a.new,
                            track_buffer=a.buffer, match_thresh=a.match, fuse_score=True, gmc_method="none",
                            proximity_thresh=0.5, appearance_thresh=0.8, with_reid=False, model="auto")
@@ -66,16 +79,19 @@ def main():
         starts = np.searchsorted(dd[:, 0], np.arange(F + 1))
         last, counted, events = {}, set(), []
         hist = {}   # tid → 최근 (f, cx, cy, h)
+        votes = {}   # tid → {클래스: 점수 합} — 프레임마다 승용/트럭이 바뀌는 트랙의 종류를 다수결로
         dump = []
         t0 = time.perf_counter()
         for f in range(0, F, a.stride):
             d = dd[starts[f]:starts[f + 1]]
+            if rider and len(d): d = drop_riders(d)
             if len(d) and a.agnostic:
                 keep = torchvision.ops.nms(torch.tensor(d[:, 1:5]), torch.tensor(d[:, 5]), 0.6).numpy(); d = d[np.sort(keep)]
             D = Dets(d[:, 1:5].astype(np.float32), d[:, 5].astype(np.float32), d[:, 6].astype(np.float32))
             out = trk.update(D, None) if len(D) or True else []
             for x1, y1, x2, y2, tid, sc, cl, _ in (out if len(out) else []):
                 tid = int(tid)
+                vt = votes.setdefault(tid, {}); vt[int(cl)] = vt.get(int(cl), 0.0) + float(sc)
                 if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc))
                 cen, bot = ((x1 + x2) / 2, (y1 + y2) / 2), ((x1 + x2) / 2, y2)
                 cur = bot if a.anchor == "bottom" else cen
@@ -112,6 +128,9 @@ def main():
                     counted.add((L["name"], tid))
                     events.append({"t": round((f1 + dtf) / fps, 3), "id": tid, "line": L["name"], "pt": [round(cp[0], 1), round(cp[1], 1)], "cls": -1, "sgn": major[L["name"]], "lost": True})
             events.sort(key=lambda e: e["t"])
+        for e in events:   # kind: 트랙 전체 다수결 종류(승용 2·오토바이 3·버스 5·트럭 7·사람 0·자전거 1)
+            vt = votes.get(e["id"])
+            e["kind"] = max(vt, key=vt.get) if vt else e["cls"]
         return events, dump, t0
     events, dump, t0 = run()
     if any(L.get("oneway", a.oneway) for L in lines):   # 1차: 선마다 다수 통과 방향을 정함 → 2차: 그 방향 통과만 셈(방향을 미리 몰라도 됨)
