@@ -1,0 +1,68 @@
+[
+ {
+  "name": "veh",
+  "label": "남동대로(양방향)",
+  "note": "",
+  "p1": [
+   271,
+   322
+  ],
+  "p2": [
+   533,
+   356
+  ],
+  "target": "vehicle",
+  "dir": "both",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": false
+ },
+ {
+  "name": "cw",
+  "label": "앞 횡단보도",
+  "note": "",
+  "p1": [
+   385,
+   393
+  ],
+  "p2": [
+   321,
+   453
+  ],
+  "target": "person",
+  "dir": "both",
+  "classes": [
+   0
+  ],
+  "anchor": "bottom",
+  "oneway": false
+ },
+ {
+  "name": "lane3",
+  "label": "기준선 3",
+  "note": "",
+  "p1": [
+   541,
+   328
+  ],
+  "p2": [
+   682,
+   342
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ }
+]
