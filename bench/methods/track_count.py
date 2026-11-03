@@ -45,8 +45,8 @@ def main():
     ap.add_argument("--stride", type=int, default=1, help="N프레임마다만 추적(검출을 N프레임마다 한 경우)")
     ap.add_argument("--oneway", action="store_true", help="기준선마다 다수 통과 방향을 정하고 반대로 지난 통과는 버림(반대 차로 차 섞임 방지)")
     ap.add_argument("--lost", type=float, default=0.0, help="선 앞에서 선을 향하다 사라진 트랙을 셈: 선까지 거리가 상자 높이×이 값 이하일 때(0=끔, --oneway 필요)")
-    ap.add_argument("--rider", choices=["auto", "on", "off"], default="auto",
-                    help="오토바이·자전거 위 사람 검출을 지움(탄 사람을 보행자로 세지 않게). auto=사람을 세는 선이 있을 때만")
+    ap.add_argument("--rider", choices=["auto", "on", "off"], default="on",
+                    help="오토바이·자전거 위 사람 검출을 지움(탄 사람을 보행자로 세지 않고, 겹친 상자 정리 때 오토바이 상자가 사람 상자에 밀려 지워지지 않게). auto=사람을 세는 선이 있을 때만")
     ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf)를 npz로 저장(분석용)")
     a = ap.parse_args()
     z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
