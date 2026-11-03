@@ -1,0 +1,75 @@
+{
+  "id": "gwanghwamun-am-02",
+  "title": "서울 광화문(세종대로) 교차로 · 출근 2/3 (220초) · 2026-11-03 09:06 시작 · 영상: 경찰청 UTIC",
+  "camera": "utic/L010030",
+  "fps": 30.0049,
+  "frames": 6602,
+  "width": 1280,
+  "height": 720,
+  "lanes": [
+    {
+      "name": "s",
+      "label": "숭례문 쪽 진입로",
+      "note": "",
+      "p1": [
+        600,
+        560
+      ],
+      "p2": [
+        880,
+        560
+      ],
+      "height": 180,
+      "target": "vehicle",
+      "dir": "both"
+    },
+    {
+      "name": "n",
+      "label": "광화문 쪽 진입로",
+      "note": "",
+      "p1": [
+        430,
+        240
+      ],
+      "p2": [
+        660,
+        240
+      ],
+      "height": 180,
+      "target": "vehicle",
+      "dir": "both"
+    },
+    {
+      "name": "cws",
+      "label": "아래 횡단보도",
+      "note": "",
+      "p1": [
+        688,
+        440
+      ],
+      "p2": [
+        712,
+        535
+      ],
+      "height": 147,
+      "target": "person",
+      "dir": "both"
+    },
+    {
+      "name": "cwn",
+      "label": "위 횡단보도",
+      "note": "",
+      "p1": [
+        600,
+        282
+      ],
+      "p2": [
+        600,
+        342
+      ],
+      "height": 110,
+      "target": "person",
+      "dir": "both"
+    }
+  ]
+}

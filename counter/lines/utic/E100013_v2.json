@@ -1,0 +1,68 @@
+[
+ {
+  "name": "cw",
+  "label": "횡단보도(양방향)",
+  "note": "사람 발이 선을 밟는 순간",
+  "p1": [
+   323,
+   371
+  ],
+  "p2": [
+   324,
+   473
+  ],
+  "target": "person",
+  "dir": "both",
+  "classes": [
+   0
+  ],
+  "anchor": "bottom",
+  "oneway": false
+ },
+ {
+  "name": "lane2",
+  "label": "기준선 2",
+  "note": "",
+  "p1": [
+   75,
+   342
+  ],
+  "p2": [
+   290,
+   341
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane3",
+  "label": "기준선 3",
+  "note": "",
+  "p1": [
+   299,
+   341
+  ],
+  "p2": [
+   407,
+   339
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ }
+]

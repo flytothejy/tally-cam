@@ -1,0 +1,43 @@
+{
+  "id": "incheon-gilbyeongwon-am-01",
+  "title": "인천 남동대로 길병원사거리 · 출근 1/2 (약 160초, 초당 15프레임) · 2026-11-03 09:06 시작 · 영상: 경찰청 UTIC",
+  "camera": "utic/L020025",
+  "fps": 15.0225,
+  "frames": 2389,
+  "width": 960,
+  "height": 540,
+  "lanes": [
+    {
+      "name": "veh",
+      "label": "남동대로(양방향)",
+      "note": "",
+      "p1": [
+        270,
+        355
+      ],
+      "p2": [
+        650,
+        385
+      ],
+      "height": 180,
+      "target": "vehicle",
+      "dir": "both"
+    },
+    {
+      "name": "cw",
+      "label": "앞 횡단보도",
+      "note": "",
+      "p1": [
+        480,
+        398
+      ],
+      "p2": [
+        500,
+        492
+      ],
+      "height": 144,
+      "target": "person",
+      "dir": "both"
+    }
+  ]
+}
