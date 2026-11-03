@@ -765,15 +765,22 @@
     try {
       await new Promise((res, rej) => { v.addEventListener('loadeddata', res, { once: true }); v.addEventListener('error', () => rej(new Error('video')), { once: true }); });
       const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d', { willReadFrequently: true });
-      const specs = lanes.map(L => { const pts = samplePts(L); return { L, n: pts.length, img: new ImageData(FRAMES, pts.length), idx: pts.map(([x, y]) => {
-        const xi = Math.trunc(x), yi = Math.trunc(y), o = [];
-        for (let yy = Math.max(yi - 1, 0); yy <= Math.min(yi + 1, H - 1); yy++) for (let xx = Math.max(xi - 1, 0); xx <= Math.min(xi + 1, W - 1); xx++) o.push((yy * W + xx) * 4);
-        return o; }) }; });
+      // 점마다 선에 수직으로 3점(1픽셀 간격), 각 점은 둘레 네 픽셀을 거리 비율로 섞음(양선형 보간) — prepare_clip.py line_maps와 같은 규칙.
+      // 좌표를 정수로 자르던 예전 방식은 대각선에서 같은 픽셀 반복·한 칸 건너뜀이 섞여 띠가 끊겨 보였음
+      const specs = lanes.map(L => { const pts = samplePts(L), dx = L.p2[0] - L.p1[0], dy = L.p2[1] - L.p1[1], ln = Math.hypot(dx, dy) || 1, nx = -dy / ln, ny = dx / ln;
+        return { L, n: pts.length, img: new ImageData(FRAMES, pts.length), idx: pts.map(([x, y]) => {
+          const o = [], w = [];
+          for (const k of [-1, 0, 1]) {
+            const u = clamp(x + k * nx - 0.5, 0, W - 1), v = clamp(y + k * ny - 0.5, 0, H - 1), x0 = Math.floor(u), y0 = Math.floor(v), x1 = Math.min(x0 + 1, W - 1), y1 = Math.min(y0 + 1, H - 1), fx = u - x0, fy = v - y0;
+            o.push((y0 * W + x0) * 4, (y0 * W + x1) * 4, (y1 * W + x0) * 4, (y1 * W + x1) * 4);
+            w.push((1 - fx) * (1 - fy) / 3, fx * (1 - fy) / 3, (1 - fx) * fy / 3, fx * fy / 3);
+          }
+          return { o, w }; }) }; });
       const have = new Uint8Array(FRAMES); let got = 0;
       const grab = f => {
         if (f < 0 || f >= FRAMES || have[f]) return;
         cx.drawImage(v, 0, 0, W, H); const d = cx.getImageData(0, 0, W, H).data;
-        for (const s of specs) { const o = s.img.data; for (let r = 0; r < s.n; r++) { const ix = s.idx[r]; let a = 0, b = 0, c = 0; for (const k of ix) { a += d[k]; b += d[k + 1]; c += d[k + 2]; } const p = (r * FRAMES + f) * 4, m = ix.length; o[p] = a / m; o[p + 1] = b / m; o[p + 2] = c / m; o[p + 3] = 255; } }
+        for (const s of specs) { const o = s.img.data; for (let r = 0; r < s.n; r++) { const { o: ix, w: wt } = s.idx[r]; let a = 0, b = 0, c = 0; for (let j = 0; j < ix.length; j++) { const k = ix[j], q = wt[j]; a += q * d[k]; b += q * d[k + 1]; c += q * d[k + 2]; } const p = (r * FRAMES + f) * 4; o[p] = a; o[p + 1] = b; o[p + 2] = c; o[p + 3] = 255; } }
         have[f] = 1; got++;
       };
       const pct = () => Math.round(got / FRAMES * 100);

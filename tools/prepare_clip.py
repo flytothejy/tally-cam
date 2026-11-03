@@ -27,6 +27,23 @@ def sample_points(p1, p2):
     return [a + (b - a) * i / (n - 1) for i in range(n)]
 
 
+def line_maps(p1, p2, thick=3):
+    """기준선을 따라 1픽셀 간격, 선에 수직으로 thick개(1픽셀 간격) 점의 좌표 — cv2.remap용.
+    대각선에서 좌표를 정수로 자르면 같은 픽셀이 반복되거나(45°에서 29%) 한 칸씩 건너뛰어(71%) 띠가 끊겨 보임 →
+    양선형 보간으로 정확한 위치에서 뽑고, 두께도 화면 축이 아니라 선에 수직인 방향으로 평균.
+    좌표 규칙: 화면 좌표 x는 픽셀 [x, x+1) 안 → 픽셀 중심이 정수인 remap 좌표로는 x - 0.5."""
+    ps = np.array(sample_points(p1, p2))
+    d = np.array(p2, float) - np.array(p1, float); nrm = np.array([-d[1], d[0]]) / (np.linalg.norm(d) + 1e-9)
+    offs = np.arange(thick) - (thick - 1) / 2
+    xy = ps[None, :, :] + offs[:, None, None] * nrm[None, None, :] - 0.5
+    return xy[..., 0].astype(np.float32), xy[..., 1].astype(np.float32)
+
+
+def sample_line(frame, maps):
+    """프레임에서 기준선 한 줄(점 수 × 3색)."""
+    return cv2.remap(frame, maps[0], maps[1], cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE).astype(np.float32).mean(0)
+
+
 def blob_candidates(strip, fps, thresh=40, min_area=60):
     img = strip.astype(np.float32)
     bg = np.median(img, axis=1, keepdims=True)
@@ -54,21 +71,21 @@ def main():
     cap = cv2.VideoCapture(a.video)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    pts = {L['name']: sample_points(L['p1'], L['p2']) for L in lanes}
+    pts = {L['name']: line_maps(L['p1'], L['p2']) for L in lanes}
     cols = {L['name']: [] for L in lanes}
     frames = 0
     while True:
         ok, f = cap.read()
         if not ok:
             break
-        for name, ps in pts.items():
-            cols[name].append(np.stack([f[max(int(y) - 1, 0):int(y) + 2, max(int(x) - 1, 0):int(x) + 2].reshape(-1, 3).mean(0) for x, y in ps]))
+        for name, mp in pts.items():
+            cols[name].append(sample_line(f, mp))
         frames += 1
     cap.release()
 
     cands, meta_lanes = [], []
     for L in lanes:
-        strip = np.stack(cols[L['name']], axis=1).astype(np.uint8)
+        strip = np.clip(np.rint(np.stack(cols[L['name']], axis=1)), 0, 255).astype(np.uint8)
         cv2.imwrite(str(out / f"strip_{L['name']}.png"), strip)
         cands += [{'lane': L['name'], 't': t, 'y': y} for t, y in blob_candidates(strip, fps)]
         meta_lanes.append({'name': L['name'], 'label': L.get('label', L['name']), 'note': L.get('note', ''),
