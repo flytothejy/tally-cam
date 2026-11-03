@@ -203,6 +203,7 @@
     <div class="gsum" id="gSum"></div>
     <div class="row">
       <button id="gAdd">+ 기준선 추가</button>
+      <button id="gAuto" class="good" title="이 클립의 차·사람 움직임(검출·추적 궤적)으로 기준선을 자동으로 제안해요" hidden>자동 기준선</button>
       <label class="mono" title="끌 때 Shift를 누르고 있어도 같아요"><input type="checkbox" id="gLock" checked> 기울기 고정 (끝점은 같은 직선 위로만)</label>
       <label class="mono" for="gSets">불러오기</label><select id="gSets" aria-label="저장된 기준선 세트"></select>
       <button id="gJson" title="counter/lines/&lt;카메라&gt;.json 형식으로 복사">JSON 복사</button>
@@ -249,7 +250,7 @@
         <li><b>검수 재생</b>: 영상을 재생하면 라벨이 찍힌 차가 기준선을 지날 때 초록 점이 떠요. 점 없이 지나가는 차가 있으면 <b>영상의 기준선을 클릭</b>해 그 순간에 바로 추가하세요.</li>
         <li>점을 선택하면 확인 프레임에 그 시각의 장면과 점(근처 다른 라벨은 초록 원)이 보여요.</li>
         <li><b>촘촘한 장면</b>: 기준선 편집에서 <b>차로 나누기</b>로 차로마다 띠를 따로 만들고, <b>검토 구간 뽑기</b>(<kbd>R</kbd>)로 10초 구간만 골라 끝내세요. 검토 구간 안의 라벨이 골든셋이에요. <kbd>H</kbd>를 누르고 있으면 점이 숨어서 밑의 차가 보여요. 빨간 점선 테두리는 <b>중복 의심</b>(한 차에 점 두 개일 수 있음)이에요. <kbd>D</kbd>로 차례로 확인하세요.</li>
-        <li><b>기준선 편집</b>: 영상 아래 버튼으로 기준선을 옮기거나 새로 그리면 그 선으로 띠를 다시 만들어요(영상을 한 번 빠르게 훑어서 1분 안팎). 라벨은 기준선 세트마다 따로 보관돼요.</li>
+        <li><b>기준선 편집</b>: 영상 아래 버튼으로 기준선을 옮기거나 새로 그리면 그 선으로 띠를 다시 만들어요(영상을 한 번 빠르게 훑어서 1분 안팎). 라벨은 기준선 세트마다 따로 보관돼요. 시내 클립에는 <b>자동 기준선</b> 버튼이 있어요 — 이 클립에서 차·사람이 실제로 움직인 궤적으로 흐름마다 선을 제안해요. 확인하고 고친 뒤 적용하세요.</li>
         <li><b>접기</b>: 띠 이름 옆 <b>접기</b>로 다 본 띠를 접고, 영상도 접을 수 있어요. 휴대폰에서는 점 조작 버튼(◀ 점 · 점 ▶ · 삭제 · 되돌리기)이 화면 아래에 붙어 있어요. 점을 지우거나 옮겨 다닐 때는 <b>같은 띠 안에서</b> 다음 점으로 넘어가요.</li>
         <li>키보드:<kbd>←</kbd><kbd>→</kbd> 같은 띠의 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
       </ul>
@@ -855,6 +856,7 @@
   function openEditor() {
     if (!META || scanning) return; editing = true; draft = GATES.map(cleanLane); armNew = false; loop = null;
     $('gateEd').hidden = false; $('gEdit').textContent = '편집 닫기'; $('gMsg').textContent = ''; $('gProg').hidden = true;
+    $('gAuto').hidden = !(META.auto_lanes && META.auto_lanes.length);
     renderGateRows(); renderSets(); drawOverlay();
   }
   function closeEditor() { editing = false; draft = null; gdrag = null; armNew = false; $('gateEd').hidden = true; $('gEdit').textContent = '기준선 편집'; ov.style.cursor = ''; drawOverlay(); }
@@ -928,6 +930,17 @@
     draft = ((v && v.lanes) || META.lanes).map(cleanLane); renderGateRows(); e.target.value = '';
   });
   $('gAdd').addEventListener('click', () => { armNew = true; $('gMsg').textContent = '영상 위에서 시작점부터 끝점까지 끌어 그리세요.'; ov.style.cursor = 'crosshair'; });
+  // 자동 기준선: tools/autogate.py가 클립의 추적 궤적으로 만든 제안(meta.auto_lanes)을 편집 중인 선으로 불러옴
+  const autoLane = L => cleanLane(Object.assign({}, L, { tset: 1 }));
+  $('gAuto').addEventListener('click', () => {
+    const A = META.auto_lanes || [], main = A.filter(L => !L.minor), minor = A.filter(L => L.minor);
+    draft = main.map(autoLane); renderGateRows(); drawOverlay();
+    const nv = main.filter(L => L.target === 'vehicle').length, np = main.length - nv;
+    $('gMsg').innerHTML = `차·사람 궤적으로 기준선 ${main.length}개를 제안했어요(차 흐름 ${nv}, 횡단보도 ${np}). 영상에서 확인하고 끝점을 고친 뒤 <b>적용하고 띠 다시 만들기</b>를 누르세요. 지금 선은 <b>불러오기</b>로 되돌릴 수 있어요.`
+      + (minor.length ? ` <button id="gAutoMinor">작은 흐름 ${minor.length}개도 넣기</button> <span class="note">(옆길에서 꺾여 합류하는 차일 수 있어 큰 흐름 선과 같은 차를 두 번 셀 수 있음)</span>` : '')
+      + (np ? '' : ' <span class="note">횡단보도는 이 구간에 건너는 사람이 적거나 너무 작게 보여 제안하지 못했어요.</span>');
+    const b = $('gAutoMinor'); if (b) b.addEventListener('click', () => { draft = draft.concat(minor.map(autoLane)); renderGateRows(); drawOverlay(); b.remove(); });
+  });
   $('gCancel').addEventListener('click', tryClose);
   // 예상 못한 오류는 화면에 보여 줌(원인 찾기용)
   const showErr = m => { const t = '오류: ' + m; $('loadNote').textContent = t; if (editing) $('gMsg').textContent = t; };
@@ -948,7 +961,7 @@
     sets[sig] = { lanes, at: Date.now() }; lsSet(setsKey(), sets);
     const prev = { lanes: GATES.map(cleanLane), state: JSON.parse(JSON.stringify(state)) };
     const sc = mainSc(), center = sc ? (sc.scrollLeft + sc.clientWidth / 2) / pps() : DURATION / 2;
-    scanning = true; ['gApply', 'gAdd', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = true); $('gProg').hidden = false; $('gProg').value = 0;
+    scanning = true; ['gApply', 'gAdd', 'gAuto', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = true); $('gProg').hidden = false; $('gProg').value = 0;
     try {
       await activate(sig, sig === ACTIVE ? null : prev);
       closeEditor(); setSpan(+$('span').value, center);
@@ -956,7 +969,7 @@
     } catch (err) {
       $('gMsg').textContent = '띠를 만들지 못했어요: ' + (err && err.message || err) + ' — 이전 기준선으로 돌아가요.';
       await activate(ACTIVE || DEFSIG).catch(() => {}); setSpan(+$('span').value, center);
-    } finally { scanning = false; ['gApply', 'gAdd', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = false); }
+    } finally { scanning = false; ['gApply', 'gAdd', 'gAuto', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = false); }
   });
 
   // 영상 위에서 끝점·선 끌기, 새 선 그리기

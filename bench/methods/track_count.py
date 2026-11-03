@@ -47,7 +47,7 @@ def main():
     ap.add_argument("--lost", type=float, default=0.0, help="선 앞에서 선을 향하다 사라진 트랙을 셈: 선까지 거리가 상자 높이×이 값 이하일 때(0=끔, --oneway 필요)")
     ap.add_argument("--rider", choices=["auto", "on", "off"], default="on",
                     help="오토바이·자전거 위 사람 검출을 지움(탄 사람을 보행자로 세지 않고, 겹친 상자 정리 때 오토바이 상자가 사람 상자에 밀려 지워지지 않게). auto=사람을 세는 선이 있을 때만")
-    ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf)를 npz로 저장(분석용)")
+    ap.add_argument("--dump", help="추적 결과(f, id, x1, y1, x2, y2, conf, cls)를 npz로 저장(분석용)")
     a = ap.parse_args()
     z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
     lines = json.loads(Path(a.lines).read_text(encoding="utf-8"))
@@ -92,7 +92,7 @@ def main():
             for x1, y1, x2, y2, tid, sc, cl, _ in (out if len(out) else []):
                 tid = int(tid)
                 vt = votes.setdefault(tid, {}); vt[int(cl)] = vt.get(int(cl), 0.0) + float(sc)
-                if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc))
+                if a.dump: dump.append((f, tid, x1, y1, x2, y2, sc, cl))
                 cen, bot = ((x1 + x2) / 2, (y1 + y2) / 2), ((x1 + x2) / 2, y2)
                 cur = bot if a.anchor == "bottom" else cen
                 prevs = last.get(tid); last[tid] = (cen, bot); prev = prevs and (prevs[1] if a.anchor == "bottom" else prevs[0])
@@ -140,7 +140,7 @@ def main():
             sg = [e["sgn"] for e in events if e["line"] == L["name"]]
             major[L["name"]] = 1 if sum(sg) >= 0 else -1
         events, dump, t0 = run(major)
-    if a.dump: np.savez_compressed(a.dump, trk=np.array(dump, np.float32), fps=fps)
+    if a.dump: np.savez_compressed(a.dump, trk=np.array(dump, np.float32).reshape(-1, 8), fps=fps)
     track_ms = (time.perf_counter() - t0) * 1000 / max(F, 1)
     det_ms = float(np.mean(z["det_ms"]))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)

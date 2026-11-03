@@ -23,5 +23,52 @@
       "target": "person",
       "dir": "both"
     }
+  ],
+  "auto_lanes": [
+    {
+      "name": "auto_v1",
+      "label": "차 흐름 1 (173대)",
+      "note": "자동 제안",
+      "p1": [
+        137,
+        317
+      ],
+      "p2": [
+        306,
+        317
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_v2",
+      "label": "차 흐름 2 (111대)",
+      "note": "자동 제안",
+      "p1": [
+        406,
+        373
+      ],
+      "p2": [
+        484,
+        274
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_cw1",
+      "label": "횡단보도 1 (7명)",
+      "note": "자동 제안 · 사람 발이 선을 밟는 순간",
+      "p1": [
+        388,
+        419
+      ],
+      "p2": [
+        387,
+        477
+      ],
+      "target": "person",
+      "dir": "both"
+    }
   ]
 }

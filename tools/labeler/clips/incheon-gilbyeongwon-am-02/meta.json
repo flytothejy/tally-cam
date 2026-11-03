@@ -39,5 +39,38 @@
       "target": "person",
       "dir": "both"
     }
+  ],
+  "auto_lanes": [
+    {
+      "name": "auto_v1",
+      "label": "차 흐름 1 (92대)",
+      "note": "자동 제안",
+      "p1": [
+        552,
+        332
+      ],
+      "p2": [
+        666,
+        363
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_v2",
+      "label": "차 흐름 2 (18대) · 보조",
+      "note": "자동 제안 · 작은 흐름(합류·회전일 수 있음)",
+      "p1": [
+        516,
+        265
+      ],
+      "p2": [
+        462,
+        182
+      ],
+      "target": "vehicle",
+      "dir": "one",
+      "minor": true
+    }
   ]
 }

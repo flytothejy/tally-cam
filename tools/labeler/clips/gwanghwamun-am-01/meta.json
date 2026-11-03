@@ -71,5 +71,67 @@
       "target": "person",
       "dir": "both"
     }
+  ],
+  "auto_lanes": [
+    {
+      "name": "auto_v1",
+      "label": "차 흐름 1 (186대)",
+      "note": "자동 제안",
+      "p1": [
+        657,
+        418
+      ],
+      "p2": [
+        732,
+        396
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_v2",
+      "label": "차 흐름 2 (182대)",
+      "note": "자동 제안",
+      "p1": [
+        737,
+        591
+      ],
+      "p2": [
+        653,
+        634
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_v3",
+      "label": "차 흐름 3 (168대)",
+      "note": "자동 제안",
+      "p1": [
+        421,
+        427
+      ],
+      "p2": [
+        408,
+        359
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_v4",
+      "label": "차 흐름 4 (148대)",
+      "note": "자동 제안",
+      "p1": [
+        933,
+        314
+      ],
+      "p2": [
+        948,
+        401
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    }
   ]
 }

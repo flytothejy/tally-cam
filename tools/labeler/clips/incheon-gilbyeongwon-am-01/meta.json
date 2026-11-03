@@ -39,5 +39,37 @@
       "target": "person",
       "dir": "both"
     }
+  ],
+  "auto_lanes": [
+    {
+      "name": "auto_v1",
+      "label": "차 흐름 1 (76대)",
+      "note": "자동 제안",
+      "p1": [
+        507,
+        395
+      ],
+      "p2": [
+        362,
+        295
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    },
+    {
+      "name": "auto_v2",
+      "label": "차 흐름 2 (26대)",
+      "note": "자동 제안",
+      "p1": [
+        532,
+        362
+      ],
+      "p2": [
+        629,
+        417
+      ],
+      "target": "vehicle",
+      "dir": "one"
+    }
   ]
 }
