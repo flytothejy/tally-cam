@@ -1,0 +1,186 @@
+[
+ {
+  "name": "lane1",
+  "label": "기준선 1",
+  "note": "",
+  "p1": [
+   474,
+   293
+  ],
+  "p2": [
+   584,
+   272
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane2",
+  "label": "기준선 2",
+  "note": "",
+  "p1": [
+   557,
+   237
+  ],
+  "p2": [
+   668,
+   216
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane3",
+  "label": "기준선 3",
+  "note": "",
+  "p1": [
+   973,
+   327
+  ],
+  "p2": [
+   917,
+   253
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane4",
+  "label": "기준선 4",
+  "note": "",
+  "p1": [
+   943,
+   330
+  ],
+  "p2": [
+   987,
+   390
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane5",
+  "label": "기준선 5",
+  "note": "",
+  "p1": [
+   715,
+   526
+  ],
+  "p2": [
+   831,
+   501
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane6",
+  "label": "기준선 6",
+  "note": "",
+  "p1": [
+   708,
+   516
+  ],
+  "p2": [
+   620,
+   536
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane7",
+  "label": "기준선 7",
+  "note": "",
+  "p1": [
+   477,
+   430
+  ],
+  "p2": [
+   493,
+   473
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ },
+ {
+  "name": "lane8",
+  "label": "기준선 8",
+  "note": "",
+  "p1": [
+   398,
+   362
+  ],
+  "p2": [
+   416,
+   425
+  ],
+  "target": "vehicle",
+  "dir": "one",
+  "classes": [
+   2,
+   3,
+   5,
+   7
+  ],
+  "anchor": "center",
+  "oneway": true
+ }
+]
