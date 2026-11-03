@@ -15,7 +15,9 @@
    3,
    5,
    7
-  ]
+  ],
+  "target": "vehicle",
+  "dir": "both"
  },
  {
   "name": "n",
@@ -33,7 +35,9 @@
    3,
    5,
    7
-  ]
+  ],
+  "target": "vehicle",
+  "dir": "both"
  },
  {
   "name": "cws",
@@ -49,7 +53,9 @@
   "classes": [
    0
   ],
-  "anchor": "bottom"
+  "anchor": "bottom",
+  "target": "person",
+  "dir": "both"
  },
  {
   "name": "cwn",
@@ -65,6 +71,8 @@
   "classes": [
    0
   ],
-  "anchor": "bottom"
+  "anchor": "bottom",
+  "target": "person",
+  "dir": "both"
  }
 ]

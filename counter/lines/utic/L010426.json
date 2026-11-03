@@ -15,7 +15,9 @@
    3,
    5,
    7
-  ]
+  ],
+  "target": "vehicle",
+  "dir": "one"
  },
  {
   "name": "up",
@@ -33,7 +35,9 @@
    3,
    5,
    7
-  ]
+  ],
+  "target": "vehicle",
+  "dir": "one"
  },
  {
   "name": "cw",
@@ -49,6 +53,8 @@
   "classes": [
    0
   ],
-  "anchor": "bottom"
+  "anchor": "bottom",
+  "target": "person",
+  "dir": "both"
  }
 ]

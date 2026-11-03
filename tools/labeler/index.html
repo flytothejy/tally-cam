@@ -625,7 +625,12 @@
   const storeKey = sig => sig === DEFSIG ? `tallycam-labeler:${CLIP}` : `tallycam-labeler:${CLIP}@${sig}`;
   const setsKey = () => `tallycam-labeler:${CLIP}:gatesets`;
   const gateSets = () => lsGet(setsKey()) || {};
-  const cleanLane = L => ({ name: L.name, label: L.label || L.name, note: L.note || '', p1: rp(L.p1), p2: rp(L.p2) });
+  // 선마다 셀 대상과 방향 규칙. counter/lines JSON에는 계수기가 바로 쓰는 classes/anchor/oneway도 함께 넣음
+  const TGT = { vehicle: { classes: [2, 3, 5, 7], anchor: 'center' }, person: { classes: [0], anchor: 'bottom' }, any: { classes: [0, 2, 3, 5, 7], anchor: 'center' } };
+  const tgtOf = L => L.target || (L.classes && L.classes.length === 1 && L.classes[0] === 0 ? 'person' : 'vehicle');
+  const dirOf = L => L.dir || (L.oneway === false || tgtOf(L) === 'person' ? 'both' : 'one');
+  const cleanLane = L => { const t = tgtOf(L), d = dirOf(L);
+    return { name: L.name, label: L.label || L.name, note: L.note || '', p1: rp(L.p1), p2: rp(L.p2), target: t, dir: d, classes: TGT[t].classes, anchor: TGT[t].anchor, oneway: d === 'one' }; };
   const gateLen = L => Math.hypot(L.p2[0] - L.p1[0], L.p2[1] - L.p1[1]);
   function samplePts(L) { const n = Math.max(48, Math.round(gateLen(L))), out = []; for (let i = 0; i < n; i++) out.push([L.p1[0] + (L.p2[0] - L.p1[0]) * i / (n - 1), L.p1[1] + (L.p2[1] - L.p1[1]) * i / (n - 1)]); return out; }
   const laneHeight = L => Math.trunc(Math.min(180, Math.max(GATES.length > 3 ? 84 : 110, samplePts(L).length * 1.5)));
@@ -816,6 +821,8 @@
       <input class="gname" value="${esc(L.name)}" aria-label="코드 이름(영문, CSV의 route)" title="코드 이름 — CSV의 route 열, 채점 때 방향 이름">
       <input class="glabel" value="${esc(L.label)}" aria-label="표시 이름">
       <input class="gnote" value="${esc(L.note)}" placeholder="메모" aria-label="메모">
+      <select class="gtgt" aria-label="셀 대상" title="이 선에서 셀 대상"><option value="vehicle"${tgtOf(L) === 'vehicle' ? ' selected' : ''}>차</option><option value="person"${tgtOf(L) === 'person' ? ' selected' : ''}>사람</option><option value="any"${tgtOf(L) === 'any' ? ' selected' : ''}>전부</option></select>
+      <select class="gdir" aria-label="방향 규칙" title="한 방향: 주로 지나가는 방향만 셈(도로). 양방향: 두 방향 모두 세고 방향을 따로 기록(횡단보도)"><option value="one"${dirOf(L) === 'one' ? ' selected' : ''}>한 방향</option><option value="both"${dirOf(L) === 'both' ? ' selected' : ''}>양방향</option></select>
       <span class="mono gc">${coordText(L)}</span>
       <input type="number" class="gsplit" min="2" max="8" value="${Math.max(2, Math.min(8, Math.round(gateLen(L) / 60)))}" aria-label="나눌 차로 수" style="width:52px">
       <button data-act="split" title="이 기준선을 차로 수만큼 똑같이 나눠요. 나눈 뒤 끝점을 끌어 차선에 맞추세요">차로 나누기</button>
@@ -842,6 +849,8 @@
     if (e.target.classList.contains('gname')) { L.name = e.target.value.trim(); e.target.classList.toggle('bad', !/^[a-z0-9_-]+$/i.test(L.name)); }
     else if (e.target.classList.contains('glabel')) L.label = e.target.value;
     else if (e.target.classList.contains('gnote')) L.note = e.target.value;
+    else if (e.target.classList.contains('gtgt')) { L.target = e.target.value; if (!L.dir) L.dir = L.target === 'person' ? 'both' : 'one'; renderGateRows(); return; }
+    else if (e.target.classList.contains('gdir')) L.dir = e.target.value;
     renderSum();
   });
   $('gRows').addEventListener('click', e => {

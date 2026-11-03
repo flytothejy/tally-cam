@@ -49,6 +49,11 @@ def main():
     a = ap.parse_args()
     z = np.load(a.cache, allow_pickle=True); det = z["det"]; F = int(z["frames"]); fps = float(z["fps"])
     lines = json.loads(Path(a.lines).read_text(encoding="utf-8"))
+    TGT = {"vehicle": ([2, 3, 5, 7], "center"), "person": ([0], "bottom"), "any": ([0, 2, 3, 5, 7], "center")}
+    for L in lines:   # 라벨러에서 내보낸 선 속성(target/dir) → 계수기 설정
+        if "target" in L:
+            L.setdefault("classes", TGT[L["target"]][0]); L.setdefault("anchor", TGT[L["target"]][1])
+        if "dir" in L and "oneway" not in L: L["oneway"] = L["dir"] == "one"
     for L in lines:
         p1, p2 = np.array(L["p1"], float), np.array(L["p2"], float); u = (p2 - p1) / np.linalg.norm(p2 - p1)
         L["q1"], L["q2"], L["len"] = tuple(p1 - u * a.ext), tuple(p2 + u * a.ext), float(np.linalg.norm(p2 - p1))
@@ -87,7 +92,7 @@ def main():
                         cur = bot if a.anchor == "bottom" else cen; prev = prevs[1] if a.anchor == "bottom" else prevs[0]
                     cp = cross_pt(prev, cur, L["q1"], L["q2"])
                     if cp is None: continue
-                    if major and side(L["q1"], L["q2"], cur) != major.get(L["name"], 0): continue   # 반대 방향 통과는 세지 않고, 이 트랙은 계속 지켜봄
+                    if major and L["name"] in major and side(L["q1"], L["q2"], cur) != major[L["name"]]: continue   # 반대 방향 통과는 세지 않고, 이 트랙은 계속 지켜봄
                     counted.add(key)
                     t = f / fps
                     if a.dedup and any(e["line"] == L["name"] and t - e["t"] <= a.dedup and math.dist(cp, e["pt"]) <= 0.15 * L["len"] for e in events):
@@ -109,9 +114,10 @@ def main():
             events.sort(key=lambda e: e["t"])
         return events, dump, t0
     events, dump, t0 = run()
-    if a.oneway:   # 1차: 선마다 다수 통과 방향을 정함 → 2차: 그 방향 통과만 셈(방향을 미리 몰라도 됨)
+    if any(L.get("oneway", a.oneway) for L in lines):   # 1차: 선마다 다수 통과 방향을 정함 → 2차: 그 방향 통과만 셈(방향을 미리 몰라도 됨)
         major = {}
         for L in lines:
+            if not L.get("oneway", a.oneway): continue   # 양방향 선(횡단보도 등)은 방향을 거르지 않고 sgn으로 기록만
             sg = [e["sgn"] for e in events if e["line"] == L["name"]]
             major[L["name"]] = 1 if sum(sg) >= 0 else -1
         events, dump, t0 = run(major)
