@@ -19,7 +19,9 @@
         345,
         480
       ],
-      "height": 110
+      "height": 110,
+      "target": "person",
+      "dir": "both"
     }
   ]
 }

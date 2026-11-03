@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tally-cam 정답 라벨러</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -127,6 +129,26 @@
   .gsum { font-size: 13px; }
   .gsum b { color: var(--amber); font-weight: 500; }
   progress { width: 100%; height: 8px; accent-color: var(--amber); }
+  /* 접기: 띠·영상·타임라인 설정 */
+  button.fold { padding: 2px 9px; font-size: 12px; }
+  section.lanes.folded .scroller { display: none; }
+  section.lanes.folded .lanehead h2 { color: var(--muted); }
+  .pane.folded .screen { display: none; }
+  .tlopts[hidden] { display: none; }
+  /* 휴대폰: 확인 프레임·타임라인·띠가 한 화면에 들어오게. 점 조작 버튼은 화면 아래에 고정 */
+  @media (max-width: 760px) {
+    .wrap { gap: 10px; padding-top: 12px; padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+    .panel { padding: 10px; }
+    .panehead .note, .lanehead .note, .lanehead .coord, .legend, .tlhint { display: none; }
+    .rule { display: none; }
+    .framebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--panel); border-top: 1px solid var(--line);
+      box-shadow: 0 -4px 14px rgba(0,0,0,.12); gap: 6px; padding: 6px max(10px, env(safe-area-inset-left, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)); }
+    .framebar { display: grid; grid-template-columns: 1fr 1fr 1.25fr 1.15fr .85fr .85fr; }
+    .framebar #ftime { grid-column: 1 / -1; order: -1; margin-left: 0 !important; font-size: 11.5px; }
+    .framebar button { padding: 10px 2px; font-size: 13.5px; white-space: nowrap; }
+    .framebar #del { font-weight: 600; }
+    .timeline h2 { display: none; }
+  }
   .scanbox { background: var(--panel); border: 1px dashed var(--amber); border-radius: 8px; padding: 14px; display: grid; gap: 8px; }
 </style>
 
@@ -143,8 +165,8 @@
   </header>
 
   <section class="panel view">
-    <div class="pane">
-      <div class="panehead"><h2>영상</h2><span class="note">라벨이 기준선을 지날 때 초록 점이 떠요 · 점 없이 지나가는 차는 기준선을 클릭해 추가</span></div>
+    <div class="pane" id="vPane">
+      <div class="panehead"><h2>영상</h2><button class="fold" id="vFold" aria-expanded="true" title="영상을 접으면 확인 프레임과 띠가 가까워져요">접기</button><span class="note">라벨이 기준선을 지날 때 초록 점이 떠요 · 점 없이 지나가는 차는 기준선을 클릭해 추가</span></div>
       <div class="screen"><video id="vid" muted playsinline preload="auto"></video><canvas id="ov" width="720" height="480"></canvas></div>
       <div class="vbar">
         <button id="play" title="반복 재생 중에 누르면 반복을 풀고 이어서 재생해요">재생</button>
@@ -163,10 +185,12 @@
         </div>
       </div>
       <div class="framebar">
-        <button id="prevF" title="한 프레임 앞으로 (,)">◀ 1프레임</button>
-        <button id="nextF" title="한 프레임 뒤로 (.)">1프레임 ▶</button>
-        <button id="del" class="danger" title="선택한 점 삭제 (X, Delete)">삭제</button>
+        <button id="prevPt" title="같은 띠의 이전 점 (←)">◀ 점</button>
+        <button id="nextPt" title="같은 띠의 다음 점 (→)">점 ▶</button>
+        <button id="del" class="danger" title="선택한 점 삭제 (X, Delete) — 같은 띠의 다음 점으로 넘어가요">삭제</button>
         <button id="undo" title="되돌리기 (Ctrl+Z)">되돌리기</button>
+        <button id="prevF" title="한 프레임 앞으로 (,)">◀ 1f</button>
+        <button id="nextF" title="한 프레임 뒤로 (.)">1f ▶</button>
         <span class="mono" id="ftime" style="margin-left:auto">점을 선택하세요</span>
       </div>
     </div>
@@ -193,12 +217,15 @@
   <section class="timeline" aria-label="시간 구간 조절">
     <div class="tlrow">
       <h2>타임라인</h2>
-      <label for="span">보이는 구간 <input type="range" id="span" min="5" max="150" step="1" value="40"> <span class="mono" id="spanVal">40초</span></label>
       <span class="mono" id="viewRange"></span>
+      <button class="fold" id="tlSet" aria-expanded="false" aria-controls="tlOpts">설정 ▾</button>
+      <button id="markView" class="good" title="지금 보이는 구간의 라벨을 모두 확인한 것으로 표시 (Enter)">이 구간 검토 완료</button>
+    </div>
+    <div class="tlrow tlopts" id="tlOpts" hidden>
+      <label for="span">보이는 구간 <input type="range" id="span" min="5" max="150" step="1" value="40"> <span class="mono" id="spanVal">40초</span></label>
       <label for="mkTheme">점 색 <select id="mkTheme" aria-label="띠 위 점 색 조합"><option value="">노랑 / 초록</option><option value="mk-mc">마젠타 / 시안</option><option value="mk-ob">주황 / 파랑</option><option value="mk-rw">빨강 / 흰색</option></select></label>
       <button id="pickWin" title="아직 검토하지 않은 10초 구간을 무작위로 골라 그 구간만 보여줘요 (R)">검토 구간 뽑기</button>
-      <button id="markView" class="good" title="지금 보이는 구간의 라벨을 모두 확인한 것으로 표시 (Enter)">이 구간 검토 완료</button>
-      <span class="mono" style="margin-left:auto">띠 위에서 휠: 좌우 이동 · Ctrl+휠: 확대·축소</span>
+      <span class="mono tlhint" style="margin-left:auto">띠 위에서 휠: 좌우 이동 · Ctrl+휠: 확대·축소</span>
     </div>
     <div class="nav" id="nav" title="클릭하거나 끌어서 보이는 구간을 옮겨요"><div class="win" id="navWin"></div></div>
   </section>
@@ -223,7 +250,8 @@
         <li>점을 선택하면 확인 프레임에 그 시각의 장면과 점(근처 다른 라벨은 초록 원)이 보여요.</li>
         <li><b>촘촘한 장면</b>: 기준선 편집에서 <b>차로 나누기</b>로 차로마다 띠를 따로 만들고, <b>검토 구간 뽑기</b>(<kbd>R</kbd>)로 10초 구간만 골라 끝내세요. 검토 구간 안의 라벨이 골든셋이에요. <kbd>H</kbd>를 누르고 있으면 점이 숨어서 밑의 차가 보여요. 빨간 점선 테두리는 <b>중복 의심</b>(한 차에 점 두 개일 수 있음)이에요. <kbd>D</kbd>로 차례로 확인하세요.</li>
         <li><b>기준선 편집</b>: 영상 아래 버튼으로 기준선을 옮기거나 새로 그리면 그 선으로 띠를 다시 만들어요(영상을 한 번 빠르게 훑어서 1분 안팎). 라벨은 기준선 세트마다 따로 보관돼요.</li>
-        <li>키보드:<kbd>←</kbd><kbd>→</kbd> 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
+        <li><b>접기</b>: 띠 이름 옆 <b>접기</b>로 다 본 띠를 접고, 영상도 접을 수 있어요. 휴대폰에서는 점 조작 버튼(◀ 점 · 점 ▶ · 삭제 · 되돌리기)이 화면 아래에 붙어 있어요. 점을 지우거나 옮겨 다닐 때는 <b>같은 띠 안에서</b> 다음 점으로 넘어가요.</li>
+        <li>키보드:<kbd>←</kbd><kbd>→</kbd> 같은 띠의 점 이동, <kbd>,</kbd><kbd>.</kbd> 1프레임 조정, <kbd>X</kbd> 삭제, <kbd>Ctrl</kbd>+<kbd>Z</kbd> 되돌리기</li>
       </ul>
     </div>
   </section>
@@ -275,12 +303,14 @@
       const L = Object.assign({}, L0, { height: laneHeight(L0) });
       const sec = document.createElement('section'); sec.className = 'lanes'; sec.setAttribute('aria-label', `${L.label} 시공간 띠`);
       const made = String(SRC[L.name]).startsWith('blob:');
-      sec.innerHTML = `<div class="lanehead"><h2>${L.label}</h2><span class="note">${L.note || ''}</span><span class="mono" style="font-size:11.5px">선 (${L.p1.map(Math.round)}) → (${L.p2.map(Math.round)})${made ? ' · <b style="color:var(--amber)">브라우저에서 새로 만든 띠</b>' : ' · 미리 만든 띠'}</span><span class="cnt"></span></div>
+      sec.innerHTML = `<div class="lanehead"><button class="fold" aria-expanded="true" title="이 띠 접기/펼치기">접기</button><h2>${L.label}</h2><span class="note">${L.note || ''}</span><span class="mono coord" style="font-size:11.5px">선 (${L.p1.map(Math.round)}) → (${L.p2.map(Math.round)})${made ? ' · <b style="color:var(--amber)">브라우저에서 새로 만든 띠</b>' : ' · 미리 만든 띠'}</span><span class="cnt"></span></div>
         <div class="scroller"><div class="track"><div class="strip"><img alt="${L.label} 기준선의 시공간 이미지" src="${SRC[L.name]}"></div><div class="ruler"></div><div class="playhead"></div></div></div>`;
       box.appendChild(sec);
       const q = s => sec.querySelector(s);
       LANES[L.name] = Object.assign({}, L, { sc: q('.scroller'), tr: q('.track'), st: q('.strip'), ru: q('.ruler'), ph: q('.playhead'), cnt: q('.cnt') });
       const lane = L.name, st = LANES[lane].st;
+      q('.fold').addEventListener('click', () => setFold(lane, !sec.classList.contains('folded')));
+      LANES[lane].sec = sec; if (foldSet().includes(lane)) setFold(lane, true, true);
       st.addEventListener('click', e => {
         if (!state || e.target.classList.contains('mk')) return; act(); remember();
         const r = st.getBoundingClientRect();
@@ -297,6 +327,18 @@
       }, { passive: false });
     }
   }
+  // 띠 접기: 클립마다 기억. 접힌 띠는 스크롤이 멈춰 있으니 펼칠 때 지금 보이는 구간으로 맞춤
+  const foldKey = () => `tallycam-labeler:${CLIP}:fold`;
+  const foldSet = () => lsGet(foldKey()) || [];
+  function setFold(lane, on, quiet) {
+    const L = LANES[lane]; if (!L) return; L.sec.classList.toggle('folded', on);
+    const b = L.sec.querySelector('.fold'); b.textContent = on ? '펼치기' : '접기'; b.setAttribute('aria-expanded', String(!on));
+    if (quiet) return;
+    lsSet(foldKey(), on ? [...new Set(foldSet().concat(lane))] : foldSet().filter(n => n !== lane));
+    const m = mainSc(); if (!on && m && m !== L.sc) L.sc.scrollLeft = m.scrollLeft;
+    if (!on && !mainSc()) return; updateNav();
+  }
+  const mainSc = () => scrollers().find(s => s.clientWidth > 0) || scrollers()[0];
   let syncing = false;
   const syncScroll = x => { for (const s of scrollers()) s.scrollLeft = x; };
 
@@ -377,7 +419,7 @@
     selected = id; const ev = evById(id); if (!ev) { render(); showEmpty(); return; }
     if (!ev.seen) { ev.seen = true; save(); }
     render();
-    if (scroll) { const sc = LANES[ev.lane].sc, x = ev.t * pps(); if (x < sc.scrollLeft + 60 || x > sc.scrollLeft + sc.clientWidth - 60) syncScroll(x - sc.clientWidth / 2); }
+    if (scroll) { const sc = mainSc(), x = ev.t * pps(); if (x < sc.scrollLeft + 60 || x > sc.scrollLeft + sc.clientWidth - 60) syncScroll(x - sc.clientWidth / 2); }
     showFrame(ev);
     const reviewing = !vid.paused && !loop;   // 검수 재생 중이면 반복 재생으로 끊지 않음
     if (!quiet && !reviewing) { loop = { a: Math.max(0, ev.t - 1.2), b: Math.min(DURATION, ev.t + 0.8), lane: ev.lane }; vid.playbackRate = 1; vid.currentTime = loop.a; vid.play().catch(() => {}); $('play').textContent = '정지'; drawOverlay(); }
@@ -406,7 +448,7 @@
   }
   function delSelected() {
     const ev = evById(selected); if (!ev) return; act(); remember();
-    const list = ordered(), i = list.findIndex(e => e.id === ev.id), next = list[i + 1] || list[i - 1];
+    const list = ordered().filter(e => e.lane === ev.lane), i = list.findIndex(e => e.id === ev.id), next = list[i + 1] || list[i - 1];   // 같은 띠 안에서 다음 점으로
     state.events = state.events.filter(e => e.id !== ev.id); state.deleted += 1; save();
     selected = null; if (next) select(next.id, true); else { render(); showEmpty(); }
   }
@@ -416,7 +458,7 @@
   }
   function markView() {
     if (!state) return; act(); remember();
-    const sc = scrollers()[0], va = sc.scrollLeft / pps(), vb = Math.min(DURATION, (sc.scrollLeft + sc.clientWidth) / pps());
+    const sc = mainSc(), va = sc.scrollLeft / pps(), vb = Math.min(DURATION, (sc.scrollLeft + sc.clientWidth) / pps());
     const useTask = task && task[0] >= va - 0.5 && task[1] <= vb + 0.5, a = useTask ? task[0] : va, b = useTask ? task[1] : vb;
     addRange(a, b); task = null; save(); render();
     $('toast').textContent = `${a.toFixed(0)}–${b.toFixed(0)}초 검토 완료`; setTimeout(() => $('toast').textContent = '', 2500);
@@ -438,6 +480,14 @@
   try { applyTheme(localStorage.getItem('tallycam-labeler:mkTheme') || ''); } catch (e) {}
   $('mkTheme').addEventListener('change', e => { applyTheme(e.target.value); try { localStorage.setItem('tallycam-labeler:mkTheme', e.target.value); } catch (er) {} });
   $('prevF').addEventListener('click', () => stepFrame(-1));
+  $('prevPt').addEventListener('click', () => { act(); move(-1); });
+  $('nextPt').addEventListener('click', () => { act(); move(1); });
+  function setTlOpts(open) { $('tlOpts').hidden = !open; $('tlSet').setAttribute('aria-expanded', String(open)); $('tlSet').textContent = open ? '설정 ▴' : '설정 ▾'; }
+  $('tlSet').addEventListener('click', () => { const o = $('tlOpts').hidden; setTlOpts(o); try { localStorage.setItem('tallycam-labeler:tlopen', o ? '1' : ''); } catch (e) {} });
+  try { setTlOpts(!!localStorage.getItem('tallycam-labeler:tlopen')); } catch (e) {}
+  function setVFold(on) { $('vPane').classList.toggle('folded', on); $('vFold').textContent = on ? '펼치기' : '접기'; $('vFold').setAttribute('aria-expanded', String(!on)); }
+  $('vFold').addEventListener('click', () => { const on = !$('vPane').classList.contains('folded'); setVFold(on); if (on) { loop = null; vid.pause(); $('play').textContent = '재생'; } try { localStorage.setItem('tallycam-labeler:vfold', on ? '1' : ''); } catch (e) {} });
+  try { setVFold(!!localStorage.getItem('tallycam-labeler:vfold')); } catch (e) {}
   $('nextF').addEventListener('click', () => stepFrame(1));
   $('del').addEventListener('click', delSelected);
   $('undo').addEventListener('click', undo);
@@ -495,7 +545,7 @@
     if (loop && t >= loop.b) vid.currentTime = loop.a;
     $('vtime').textContent = t.toFixed(1) + ' s';
     for (const lane of laneIds()) LANES[lane].ph.style.left = (t * pps()) + 'px';
-    const sc = scrollers()[0];
+    const sc = mainSc();
     if (sc && !loop && !vid.paused) { const x = t * pps(); if (x > sc.scrollLeft + sc.clientWidth * 0.8 || x < sc.scrollLeft) syncScroll(x - sc.clientWidth * 0.3); }
     drawOverlay(); requestAnimationFrame(tick);
   }
@@ -507,15 +557,15 @@
   vid.addEventListener('ended', () => { $('play').textContent = '재생'; });
 
   // ---------- 타임라인 ----------
-  const viewW = () => (scrollers()[0] && scrollers()[0].clientWidth) || 1000;
+  const viewW = () => (mainSc() && mainSc().clientWidth) || 1000;
   function setSpan(sec, anchorT) {
-    const sc = scrollers()[0], w = viewW();
+    const sc = mainSc(), w = viewW();
     const center = anchorT != null ? anchorT : (sc.scrollLeft + w / 2) / pps();
     sec = clamp(sec, 5, DURATION); $('span').value = Math.round(sec); $('spanVal').textContent = Math.round(sec) + '초';
     zoom = w / (sec * FPS); layout(); syncScroll(center * pps() - w / 2); updateNav();
   }
   function updateNav() {
-    const sc = scrollers()[0]; if (!sc) return;
+    const sc = mainSc(); if (!sc) return;
     const tw = FRAMES * zoom, nw = $('nav').clientWidth, a = sc.scrollLeft / tw, b = Math.min(1, (sc.scrollLeft + sc.clientWidth) / tw);
     $('navWin').style.left = (a * nw) + 'px'; $('navWin').style.width = Math.max(6, (b - a) * nw) + 'px';
     $('viewRange').textContent = `${(a * DURATION).toFixed(0)}–${(b * DURATION).toFixed(0)}초 / ${DURATION.toFixed(0)}초`;
@@ -538,7 +588,7 @@
 
   // ---------- 키보드 ----------
   const ordered = () => state.events.slice().sort((a, b) => a.t - b.t);
-  function move(d) { const l = ordered(); if (!l.length) return; let i = l.findIndex(e => e.id === selected); i = i < 0 ? (d > 0 ? 0 : l.length - 1) : clamp(i + d, 0, l.length - 1); select(l[i].id, true); }
+  function move(d) { const cur = evById(selected), l = ordered().filter(e => !cur || e.lane === cur.lane); if (!l.length) return; let i = l.findIndex(e => e.id === selected); i = i < 0 ? (d > 0 ? 0 : l.length - 1) : clamp(i + d, 0, l.length - 1); select(l[i].id, true); }
   document.addEventListener('keydown', e => {
     if (!state || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
     const k = e.key.toLowerCase();
@@ -627,10 +677,12 @@
   const gateSets = () => lsGet(setsKey()) || {};
   // 선마다 셀 대상과 방향 규칙. counter/lines JSON에는 계수기가 바로 쓰는 classes/anchor/oneway도 함께 넣음
   const TGT = { vehicle: { classes: [2, 3, 5, 7], anchor: 'center' }, person: { classes: [0], anchor: 'bottom' }, any: { classes: [0, 2, 3, 5, 7], anchor: 'center' } };
-  const tgtOf = L => L.target || (L.classes && L.classes.length === 1 && L.classes[0] === 0 ? 'person' : 'vehicle');
+  const tgtOf = L => L.target || ((L.classes && L.classes.length === 1 && L.classes[0] === 0) || L.anchor === 'bottom' || /^cw/.test(L.name) ? 'person' : 'vehicle');
   const dirOf = L => L.dir || (L.oneway === false || tgtOf(L) === 'person' ? 'both' : 'one');
   const cleanLane = L => { const t = tgtOf(L), d = dirOf(L);
-    return { name: L.name, label: L.label || L.name, note: L.note || '', p1: rp(L.p1), p2: rp(L.p2), target: t, dir: d, classes: TGT[t].classes, anchor: TGT[t].anchor, oneway: d === 'one' }; };
+    return { name: L.name, label: L.label || L.name, note: L.note || '', p1: rp(L.p1), p2: rp(L.p2), target: t, dir: d, classes: TGT[t].classes, anchor: TGT[t].anchor, oneway: d === 'one', ...(L.tset ? { tset: 1 } : {}) }; };
+  // v23 이전에 저장한 세트는 횡단보도 선도 '차'로 들어가 있음 → 직접 고른 적이 없으면 사람·양방향으로 바로잡음
+  const fixCw = L => (!L.tset && /^cw/.test(L.name) && L.target === 'vehicle') ? cleanLane(Object.assign({}, L, { target: 'person', dir: 'both' })) : L;
   const gateLen = L => Math.hypot(L.p2[0] - L.p1[0], L.p2[1] - L.p1[1]);
   function samplePts(L) { const n = Math.max(48, Math.round(gateLen(L))), out = []; for (let i = 0; i < n; i++) out.push([L.p1[0] + (L.p2[0] - L.p1[0]) * i / (n - 1), L.p1[1] + (L.p2[1] - L.p1[1]) * i / (n - 1)]); return out; }
   const laneHeight = L => Math.trunc(Math.min(180, Math.max(GATES.length > 3 ? 84 : 110, samplePts(L).length * 1.5)));
@@ -645,7 +697,7 @@
   }
 
   async function activate(sig, prev) {
-    const sets = gateSets(), lanes = (sets[sig] && sets[sig].lanes) || (sig === DEFSIG ? META.lanes.map(cleanLane) : null);
+    const sets = gateSets(), lanes = ((sets[sig] && sets[sig].lanes) || (sig === DEFSIG ? META.lanes.map(cleanLane) : null) || null)?.map(fixCw);
     if (!lanes) { if (sig !== DEFSIG) return activate(DEFSIG); throw new Error('no gates'); }
     const src = {}, cands = [], need = [];
     for (const L of lanes) {
@@ -849,7 +901,7 @@
     if (e.target.classList.contains('gname')) { L.name = e.target.value.trim(); e.target.classList.toggle('bad', !/^[a-z0-9_-]+$/i.test(L.name)); }
     else if (e.target.classList.contains('glabel')) L.label = e.target.value;
     else if (e.target.classList.contains('gnote')) L.note = e.target.value;
-    else if (e.target.classList.contains('gtgt')) { L.target = e.target.value; L.dir = L.target === 'person' ? 'both' : 'one'; renderGateRows(); return; }   // 대상을 바꾸면 기본 방향도 따라감(이후 직접 바꿀 수 있음)
+    else if (e.target.classList.contains('gtgt')) { L.target = e.target.value; L.tset = 1; L.dir = L.target === 'person' ? 'both' : 'one'; renderGateRows(); return; }   // 대상을 바꾸면 기본 방향도 따라감(이후 직접 바꿀 수 있음)
     else if (e.target.classList.contains('gdir')) L.dir = e.target.value;
     renderSum();
   });
@@ -895,7 +947,7 @@
     const lanes = draft.map(cleanLane), sig = sigOf(lanes), sets = gateSets();
     sets[sig] = { lanes, at: Date.now() }; lsSet(setsKey(), sets);
     const prev = { lanes: GATES.map(cleanLane), state: JSON.parse(JSON.stringify(state)) };
-    const sc = scrollers()[0], center = sc ? (sc.scrollLeft + sc.clientWidth / 2) / pps() : DURATION / 2;
+    const sc = mainSc(), center = sc ? (sc.scrollLeft + sc.clientWidth / 2) / pps() : DURATION / 2;
     scanning = true; ['gApply', 'gAdd', 'gCancel', 'gEdit'].forEach(id => $(id).disabled = true); $('gProg').hidden = false; $('gProg').value = 0;
     try {
       await activate(sig, sig === ACTIVE ? null : prev);

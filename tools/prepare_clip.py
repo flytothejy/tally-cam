@@ -72,7 +72,8 @@ def main():
         cv2.imwrite(str(out / f"strip_{L['name']}.png"), strip)
         cands += [{'lane': L['name'], 't': t, 'y': y} for t, y in blob_candidates(strip, fps)]
         meta_lanes.append({'name': L['name'], 'label': L.get('label', L['name']), 'note': L.get('note', ''),
-                           'p1': L['p1'], 'p2': L['p2'], 'height': int(min(180, max(110, strip.shape[0] * 1.5)))})
+                           'p1': L['p1'], 'p2': L['p2'], 'height': int(min(180, max(110, strip.shape[0] * 1.5))),
+                           **{k: L[k] for k in ('target', 'dir') if k in L}})   # 선마다 셀 대상·방향 규칙(라벨러 게이트 편집과 같은 값)
     (out / 'cands.json').write_text(json.dumps(cands, separators=(',', ':')), encoding='utf-8')
     meta = {'id': a.clip_id, 'title': a.title, 'camera': a.camera, 'fps': round(fps, 4), 'frames': frames,
             'width': w, 'height': h, 'lanes': meta_lanes}

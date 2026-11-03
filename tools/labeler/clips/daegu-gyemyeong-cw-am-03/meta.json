@@ -19,7 +19,9 @@
         370,
         428
       ],
-      "height": 139
+      "height": 139,
+      "target": "person",
+      "dir": "both"
     }
   ]
 }
