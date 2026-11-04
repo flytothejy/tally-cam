@@ -13,7 +13,12 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-{}.ttc"
-def font(size, w="Bold"): return ImageFont.truetype(FONT.format(w), size, index=1)   # index 1 = KR
+WINFONT = {"Black": "malgunbd.ttf", "Bold": "malgunbd.ttf", "Medium": "malgun.ttf", "Regular": "malgun.ttf"}   # 윈도우: 맑은 고딕
+def font(size, w="Bold"):
+    if Path(FONT.format(w)).exists(): return ImageFont.truetype(FONT.format(w), size, index=1)   # index 1 = KR
+    for p in (Path("C:/Windows/Fonts") / WINFONT.get(w, "malgun.ttf"), Path("/System/Library/Fonts/AppleSDGothicNeo.ttc")):
+        if p.exists(): return ImageFont.truetype(str(p), size)
+    return ImageFont.load_default(size)
 
 KIND = {2: "승용", 3: "오토바이", 5: "버스", 7: "트럭", 0: "사람", 1: "자전거"}
 BG, PANEL, CARD, GRID, TXT, SUB = (11, 14, 19), (17, 21, 28), (24, 29, 38), (44, 51, 64), (236, 240, 245), (138, 148, 163)
