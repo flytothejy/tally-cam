@@ -15,7 +15,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-{}.ttc"
 WINFONT = {"Black": "malgunbd.ttf", "Bold": "malgunbd.ttf", "Medium": "malgun.ttf", "Regular": "malgun.ttf"}   # 윈도우: 맑은 고딕
 def font(size, w="Bold"):
-    if Path(FONT.format(w)).exists(): return ImageFont.truetype(FONT.format(w), size, index=1)   # index 1 = KR
+    for ww in (w, {"Black": "Bold", "Medium": "Regular"}.get(w, w), "Bold", "Regular"):   # 굵기 파일이 없으면 가까운 굵기로
+        if Path(FONT.format(ww)).exists(): return ImageFont.truetype(FONT.format(ww), size, index=1)   # index 1 = KR
     for p in (Path("C:/Windows/Fonts") / WINFONT.get(w, "malgun.ttf"), Path("/System/Library/Fonts/AppleSDGothicNeo.ttc")):
         if p.exists(): return ImageFont.truetype(str(p), size)
     return ImageFont.load_default(size)
