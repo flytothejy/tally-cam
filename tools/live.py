@@ -7,6 +7,8 @@
   --out live.mp4         파일로 저장
   --out rtmp             유튜브 라이브: 환경변수 YT_STREAM_KEY 필요(키는 출력하지 않음)
 녹화 파일로 시험:  --file samples/utic/am0906_L010426.mp4  (실시간 속도로 흘려 보냄)
+기준선 자동:  --gates auto  — 처음 --warmup초(기본 150, 신호 한 주기 이상) 동안 궤적을 모아 tools/autogate.py로 기준선을 정하고 세기 시작.
+  2초마다 기준 화면과 비교해 6초 넘게 크게 다르면(카메라 회전·확대) 기준선을 버리고 다시 관찰 → 다시 정함. 이전 구간 계수는 따로 남김.
 
 구조: 받는 스레드(최신 프레임만 유지) / 검출·추적·계수 스레드(검출기가 낼 수 있는 속도로) / 그리기 루프(--fps로 일정하게).
 검출이 느리면(CPU) 상자가 조금 늦게 따라오고 추적이 끊기기 쉬움 → GPU면 small, CPU면 --model nano 권장.
@@ -46,20 +48,62 @@ class Source(threading.Thread):
 
 
 class Counter(threading.Thread):
-    def __init__(self, src, gates, model, conf):
-        super().__init__(daemon=True); self.src, self.gates, self.conf = src, gates, conf
+    def __init__(self, src, gates, model, conf, auto=False, warmup=150.0):
+        super().__init__(daemon=True); self.src, self.conf, self.auto, self.warmup = src, conf, auto, warmup
         import rfdetr
         self.m = {"nano": rfdetr.RFDETRNano, "small": rfdetr.RFDETRSmall, "medium": rfdetr.RFDETRMedium}[model]()
         try: self.m.optimize_for_inference()
         except Exception: pass
         self.trk = BYTETracker(SimpleNamespace(tracker_type="bytetrack", track_high_thresh=0.25, track_low_thresh=0.1, new_track_thresh=0.25, track_buffer=30,
                                                match_thresh=0.8, fuse_score=True, gmc_method="none", proximity_thresh=0.5, appearance_thresh=0.8, with_reid=False, model="auto"))
+        self.boxes, self.events, self.last, self.votes, self.counted = [], [], {}, {}, set()
+        self.det_ms, self.lock, self.ok = 0.0, threading.Lock(), True
+        self.samples, self.ref, self.bad, self.version, self.history = [], None, 0, 0, []   # 자동 기준선용 궤적, 기준 화면, 화각 변경 판정
+        self.status, self.warm_t0 = "", time.time()
+        self.gates = []
+        if gates: self.set_gates(gates)
+        elif auto: self.status = "기준선 자동 설정 중"
+    def set_gates(self, gates):
         for L in gates:
             c, an = TGT[L.get("target", "vehicle")]; L.setdefault("classes", c); L.setdefault("anchor", an); L["oneway"] = L.get("dir", "one") == "one"
             p1, p2 = np.array(L["p1"], float), np.array(L["p2"], float); u = (p2 - p1) / np.linalg.norm(p2 - p1)
             L["q1"], L["q2"], L["sg"] = tuple(p1 - u * 30), tuple(p2 + u * 30), []
-        self.boxes, self.events, self.last, self.votes, self.counted = [], [], {}, {}, set()
-        self.det_ms, self.lock, self.ok = 0.0, threading.Lock(), True
+        with self.lock:
+            if self.events: self.history.append(len(self.events))
+            self.gates, self.events, self.counted = gates, [], set(); self.version += 1; self.status = ""
+        self.ref = None
+    @staticmethod
+    def thumb(f):
+        """화각 비교용: 작게 줄인 화면의 밝기 기울기(조명·차 몇 대에는 덜 흔들림)."""
+        g = cv2.GaussianBlur(cv2.resize(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY), (96, 54), interpolation=cv2.INTER_AREA).astype(np.float32), (3, 3), 0)
+        m = np.hypot(cv2.Sobel(g, cv2.CV_32F, 1, 0), cv2.Sobel(g, cv2.CV_32F, 0, 1)).ravel(); m -= m.mean(); return m / (np.linalg.norm(m) + 1e-6)
+    def check_view(self, f, t):
+        """기준 화면과 비교. 세 번 연속(약 6초) 크게 다르면 화각이 바뀐 것 → 자동 모드면 기준선을 다시 잡음."""
+        th = self.thumb(f)
+        if self.ref is None: self.ref = th; return
+        sim = float(th @ self.ref)
+        self.bad = self.bad + 1 if sim < 0.55 else 0
+        if self.bad >= 3:
+            self.bad = 0; self.ref = th
+            if self.auto:
+                with self.lock:
+                    if self.events: self.history.append(len(self.events))
+                    self.gates, self.events, self.counted = [], [], set(); self.version += 1
+                self.samples, self.warm_t0, self.status = [], time.time(), "화각이 바뀌어 기준선을 다시 잡는 중"
+            else: self.status = "화각이 바뀐 것 같아요 — 기준선을 확인하세요"
+    def try_auto(self):
+        import autogate
+        if time.time() - self.warm_t0 < self.warmup: return
+        S = np.array(self.samples, np.float32)
+        g = [L for L in autogate.propose(S, self.src.fps, self.src.W, self.src.H, min_tracks=6) if not L.get("minor")] if len(S) else []
+        if not any(L["target"] == "vehicle" for L in g):   # 아직 흐름을 못 찾음 → 1분 더 봄
+            self.warm_t0 = time.time() - self.warmup + 60; return
+        AR = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"]
+        k = 0
+        for L in g:
+            if L["target"] == "person": L["show"] = "횡단보도"; continue
+            k += 1; u = L["auto"]["u"]; L["show"] = f"{AR[int(round(math.degrees(math.atan2(u[1], u[0])) / 45)) % 8]} 차 흐름 {k}"
+        self.set_gates(g)
     def detect(self, f):
         d = self.m.predict(Image.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB)), threshold=self.conf)
         keep = [i for i, c in enumerate(d.class_id) if int(c) in COCO]
@@ -71,6 +115,8 @@ class Counter(threading.Thread):
             fr = self.src.frame
             if not fr or fr[0] == seen: time.sleep(0.005); continue
             seen, f = fr; t0 = time.time(); t = seen / self.src.fps
+            if t0 - getattr(self, "_vt", 0) > 2: self._vt = t0; self.check_view(f, t)
+            if self.auto and not self.gates: self.try_auto()
             xy, sc, cl = self.detect(f)
             if len(xy):   # 오토바이·자전거 위 사람 지우기 + 종류 무관 겹침 정리
                 tw = np.where(np.isin(cl, (1, 3)))[0]; pi = np.where(cl == 0)[0]
@@ -82,6 +128,7 @@ class Counter(threading.Thread):
             out = self.trk.update(Dets(xy.astype(np.float32), sc.astype(np.float32), cl.astype(np.float32)), None)
             boxes, new = [], []
             for x1, y1, x2, y2, tid, s, c, _ in (out if len(out) else []):
+                self.samples.append((seen, int(tid), x1, y1, x2, y2, s, c))
                 tid = int(tid); v = self.votes.setdefault(tid, {}); v[int(c)] = v.get(int(c), 0) + float(s); kind = max(v, key=v.get)
                 cen, bot = ((x1 + x2) / 2, (y1 + y2) / 2), ((x1 + x2) / 2, y2); prev = self.last.get(tid); self.last[tid] = (cen, bot)
                 boxes.append((tid, x1, y1, x2, y2, kind))
@@ -94,6 +141,7 @@ class Counter(threading.Thread):
                     sg = side(L["q1"], L["q2"], b); L["sg"].append(sg)
                     if L["oneway"] and len(L["sg"]) >= 5 and sg != (1 if sum(L["sg"]) >= 0 else -1): continue   # 처음 5대로 주 방향을 정하고 반대 방향은 버림
                     self.counted.add((L["name"], tid)); new.append({"t": t, "wall": time.time(), "id": tid, "line": L["name"], "pt": cp, "kind": kind})
+            if len(self.samples) > 200000: del self.samples[:50000]
             with self.lock:
                 self.boxes = boxes; self.events += new
             self.det_ms = self.det_ms * 0.9 + (time.time() - t0) * 100
@@ -193,7 +241,7 @@ class Screen:
         vl = [L for L in self.lines if L.get("target") != "person"]; nb = 10; bw = (cx1 - cx0) / nb
         cur = int(el // 60); bins = list(range(max(0, cur - nb + 1), cur + 1))
         vals = [[sum(1 for e in events if e["line"] == L["name"] and int((e["wall"] - t_start) // 60) == b) for L in vl] for b in bins]
-        bm = max(20, int(math.ceil(max([max(v) for v in vals] + [1]) / 20.0) * 20))
+        bm = max(20, int(math.ceil(max([max(v) if v else 0 for v in vals] + [1]) / 20.0) * 20))
         for q in range(5): d.text((self.PX + z(62), self.B0 + self.BH * (1 - q / 4)), str(bm * q // 4), font=F["tiny"], fill=SUB, anchor="rm")
         for j, (b, v) in enumerate(zip(bins, vals)):
             for i, L in enumerate(vl):
@@ -216,7 +264,7 @@ class Screen:
 def main():
     ap = argparse.ArgumentParser()
     g = ap.add_mutually_exclusive_group(required=True); g.add_argument("--utic"); g.add_argument("--file"); g.add_argument("--url")
-    ap.add_argument("--gates", required=True); ap.add_argument("--title", required=True); ap.add_argument("--labels")
+    ap.add_argument("--gates", required=True, help="기준선 JSON, 또는 auto(처음 --warmup초 동안 궤적을 보고 자동으로 정함, 화각이 바뀌면 다시)"); ap.add_argument("--warmup", type=float, default=150); ap.add_argument("--title", required=True); ap.add_argument("--labels")
     ap.add_argument("--out", default="preview"); ap.add_argument("--size", default="1280x720"); ap.add_argument("--fps", type=float, default=15)
     ap.add_argument("--model", default="small"); ap.add_argument("--conf", type=float, default=0.25); ap.add_argument("--seconds", type=float, default=0)
     ap.add_argument("--source", default="영상: 경찰청 도시교통정보센터(UTIC) 제공"); ap.add_argument("--note", default="자동 계수 · 실시간")
@@ -227,10 +275,11 @@ def main():
     else: url = a.file or a.url
     src = Source(url, realtime=bool(a.file)); src.start()
     while src.frame is None and src.ok: time.sleep(0.05)
-    gates = json.loads(Path(a.gates).read_text(encoding="utf-8")); names = json.loads(a.labels) if a.labels else {}
+    auto = a.gates == "auto"; names = json.loads(a.labels) if a.labels else {}
+    gates = [] if auto else json.loads(Path(a.gates).read_text(encoding="utf-8"))
     for L in gates: L["show"] = names.get(L["name"], L.get("label", L["name"]))
-    cnt = Counter(src, gates, a.model, a.conf); cnt.start()
-    W, H = map(int, a.size.split("x")); scr = Screen(W, H, src.W, src.H, gates, a.title, a.source, a.note)
+    cnt = Counter(src, gates, a.model, a.conf, auto=auto, warmup=a.warmup); cnt.start()
+    W, H = map(int, a.size.split("x")); scr = Screen(W, H, src.W, src.H, cnt.gates, a.title, a.source, a.note); ver = cnt.version
     enc = ["-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-pix_fmt", "yuv420p", "-g", str(int(a.fps * 2))]
     proc = None
     if a.out == "rtmp":
@@ -240,15 +289,24 @@ def main():
                                  "-c:a", "aac", "-b:a", "64k", "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{key}"], stdin=subprocess.PIPE)
     elif a.out != "preview":
         proc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(a.fps), "-i", "-", *enc, "-crf", "23", a.out], stdin=subprocess.PIPE)
-    t_start = time.time(); nxt = t_start; frames = 0
+    t_start = time.time(); run0 = t_start; nxt = t_start; frames = 0
     try:
         while src.ok or (src.frame and cnt.is_alive()):
             now = time.time()
             if a.seconds and now - t_start > a.seconds: break
             if now < nxt: time.sleep(nxt - now); continue
             nxt += 1 / a.fps
-            with cnt.lock: boxes, events = list(cnt.boxes), list(cnt.events)
+            with cnt.lock: boxes, events, gv = list(cnt.boxes), list(cnt.events), cnt.version
+            if gv != ver:   # 기준선이 새로 정해짐 → 화면 틀을 다시 만들고 차트 시작점을 지금으로
+                ver = gv; scr = Screen(W, H, src.W, src.H, cnt.gates, a.title, a.source, a.note); t_start = time.time()
             img = scr.draw(src.frame[1], time.time(), boxes, events, t_start, f"검출 {cnt.det_ms:.0f}ms")
+            if cnt.status:   # 안내 띠(기준선 자동 설정 중 등)
+                d = ImageDraw.Draw(img); z = scr.z; msg = cnt.status
+                if not cnt.gates and auto: msg += f" · 차 흐름 관찰 {min(time.time() - cnt.warm_t0, a.warmup):.0f}/{a.warmup:.0f}초"
+                tw = d.textlength(msg, font=scr.F["mid"]) + z(40); x0 = scr.OX + (scr.DW - tw) / 2; y0 = scr.OY + z(24)
+                d.rounded_rectangle((x0, y0, x0 + tw, y0 + z(48)), z(12), fill=(10, 12, 16)); d.text((x0 + tw / 2, y0 + z(24)), msg, font=scr.F["mid"], fill=(255, 196, 64), anchor="mm")
+            if cnt.history and cnt.gates:
+                d = ImageDraw.Draw(img); d.text((scr.OX + 12, scr.OY + scr.DH - 24), f"이전 화각 구간 계수 {sum(cnt.history)}건", font=scr.F["tiny"], fill=SUB)
             frames += 1
             if proc: proc.stdin.write(np.asarray(img).tobytes())
             else:
@@ -258,8 +316,8 @@ def main():
     finally:
         src.ok = cnt.ok = False
         if proc: proc.stdin.close(); proc.wait()
-        el = time.time() - t_start
-        print(f"{el:.0f}초 · 화면 {frames / el:.1f}fps · 검출 {cnt.det_ms:.0f}ms · 계수 {len(cnt.events)}건")
+        el = time.time() - run0
+        print(f"{el:.0f}초 · 화면 {frames / el:.1f}fps · 검출 {cnt.det_ms:.0f}ms · 계수 {len(cnt.events) + sum(cnt.history)}건 · 기준선 {cnt.version}번 정함")
 
 
 if __name__ == "__main__":
