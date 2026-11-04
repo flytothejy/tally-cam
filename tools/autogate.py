@@ -120,14 +120,15 @@ def seg_crosses(tr, a, b):
     return False
 
 
-def place_gate(g, others, W, H, margin_k=0.5, undirected=False):
+def place_gate(g, others, W, H, margin_k=0.5, undirected=False, flat=False, ylim=(0.06, 0.94)):
     """흐름 g에 수직인 선 하나. 후보 위치마다 점수 = 지나는 비율 × 속도 × 크기^0.5 × (1 - 다른 흐름 비율)."""
     U = np.array([heading(t) for t in g])
     u = axis_of(U) if undirected else U.mean(0) / (np.linalg.norm(U.mean(0)) + 1e-9)
     n0 = np.array([-u[1], u[0]])
     sp_all = np.median([np.median(np.hypot(np.diff(t["x"]), np.diff(t["y"])) / np.maximum(np.diff(t["f"]), 1)) for t in g]) + 1e-6
     rot = lambda v, d: np.array([v[0] * math.cos(d) - v[1] * math.sin(d), v[0] * math.sin(d) + v[1] * math.cos(d)])
-    dirs = [rot(n0, math.radians(d)) for d in (-45, -30, -15, 0, 15, 30, 45)] + [np.array([1.0, 0.0])]   # 선 방향 후보: 흐름에 수직 ± 45°, 그리고 수평(원근 때문에 사람이 긋는 선은 대개 수평)
+    dirs = [rot(n0, math.radians(d)) for d in (-45, -30, -15, 0, 15, 30, 45)] + [np.array([1.0, 0.0])]
+    if flat: dirs = [rot(np.array([1.0, 0.0]), math.radians(d)) for d in (-20, -10, 0, 10, 20)] if abs(u[1]) >= abs(u[0]) else [rot(np.array([0.0, 1.0]), math.radians(d)) for d in (-20, -10, 0, 10, 20)]   # 원근: 길을 따라 내려다보면 같은 거리는 화면에서 거의 수평   # 선 방향 후보: 흐름에 수직 ± 45°, 그리고 수평(원근 때문에 사람이 긋는 선은 대개 수평)
     best = None
     for n in dirs:
         m = np.array([-n[1], n[0]])   # 선에 수직인 축 — 이 축을 따라 선을 옮겨 가며 봄
@@ -143,7 +144,7 @@ def place_gate(g, others, W, H, margin_k=0.5, undirected=False):
             c = pts.mean(0); a = c + n * (lo - c @ n); b = c + n * (hi - c @ n)
             a = np.clip(a, 0, [W - 1, H - 1]); b = np.clip(b, 0, [W - 1, H - 1])
             edge = min(c[1], H - c[1]) / H   # 화면 위·아래 끝은 상자가 잘려서 불리
-            if edge < 0.06: continue
+            if not (ylim[0] * H <= c[1] <= ylim[1] * H): continue
             speed = min(1.0, np.median([r[2] for _, r in hits]) / sp_all)
             oth = sum(seg_crosses(t, a, b) for t in others) / max(len(others), 1) if others else 0.0
             ang = np.mean([abs(heading(t)[0] * n[1] - heading(t)[1] * n[0]) for t, _ in hits])   # 궤적과 선이 이루는 각의 sin — 비스듬히 스치면 낮음
@@ -192,7 +193,7 @@ def crosswalk_groups(ptrs, vtrs, W, H, min_tracks):
     return [g for g in groups if len(g) >= min_tracks]
 
 
-def propose(trk, fps, W, H, t0=0.0, t1=1e9, min_tracks=8):
+def propose(trk, fps, W, H, t0=0.0, t1=1e9, min_tracks=8, flat=False, ylim=(0.06, 0.94)):
     trs = [t for t in load_tracks(trk, fps, t0, t1) if moving(t)]
     vtrs = [t for t in trs if t["cls"] in VEH]; ptrs = [t for t in trs if t["cls"] == 0]
     gates = []
@@ -200,7 +201,7 @@ def propose(trk, fps, W, H, t0=0.0, t1=1e9, min_tracks=8):
     placed = []
     for g in sorted(vg, key=len, reverse=True):   # 큰 흐름부터
         others = [t for gg in vg if gg is not g for t in gg]
-        b = place_gate(g, others, W, H)
+        b = place_gate(g, others, W, H, flat=flat, ylim=ylim)
         if not b: continue
         # 이 흐름의 차 대부분이 이미 놓인 다른 선도 지나가면(옆길에서 꺾여 들어와 큰 흐름에 합류) 같은 차를 두 번 세게 됨 → 버림
         dup = max([np.mean([seg_crosses(t, pa, pb) for t in g]) for _, pa, pb in placed] or [0.0])

@@ -35,9 +35,13 @@ class Source(threading.Thread):
         super().__init__(daemon=True); self.cap = cv2.VideoCapture(url); self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30
         self.realtime, self.frame, self.n, self.ok, self.t0 = realtime, None, 0, True, time.time()
         self.W, self.H = int(self.cap.get(3)), int(self.cap.get(4))
+        self.acc, self._prev, self._ft = None, None, 0.0   # 광류 누적(자동 기준선 관찰 중일 때만)
     def run(self):
         while self.ok:
             ok, f = self.cap.read()
+            if ok and self.acc is not None and self._prev is not None and time.time() - self._ft > 0.5:
+                self._ft = time.time(); self.acc.add(self._prev, f)   # 바로 이웃한 두 프레임 → 움직임(검출 속도와 무관)
+            if ok: self._prev = f
             if not ok:
                 if not self.realtime: time.sleep(0.5); continue   # 스트림이 잠깐 끊기면 기다림
                 self.ok = False; break
@@ -62,7 +66,10 @@ class Counter(threading.Thread):
         self.status, self.warm_t0 = "", time.time()
         self.gates = []
         if gates: self.set_gates(gates)
-        elif auto: self.status = "기준선 자동 설정 중"
+        elif auto: self.status = "기준선 자동 설정 중"; self.new_acc()
+    def new_acc(self):
+        import flowgate
+        self.src.acc = flowgate.FlowAcc(self.src.W, self.src.H)
     def set_gates(self, gates):
         for L in gates:
             c, an = TGT[L.get("target", "vehicle")]; L.setdefault("classes", c); L.setdefault("anchor", an); L["oneway"] = L.get("dir", "one") == "one"
@@ -89,13 +96,16 @@ class Counter(threading.Thread):
                 with self.lock:
                     if self.events: self.history.append(len(self.events))
                     self.gates, self.events, self.counted = [], [], set(); self.version += 1
-                self.samples, self.warm_t0, self.status = [], time.time(), "화각이 바뀌어 기준선을 다시 잡는 중"
+                self.samples, self.warm_t0, self.status = [], time.time(), "화각이 바뀌어 기준선을 다시 잡는 중"; self.new_acc()
             else: self.status = "화각이 바뀐 것 같아요 — 기준선을 확인하세요"
     def try_auto(self):
         import autogate
         if time.time() - self.warm_t0 < self.warmup: return
         S = np.array(self.samples, np.float32)
-        g = [L for L in autogate.propose(S, self.src.fps, self.src.W, self.src.H, min_tracks=6) if not L.get("minor")] if len(S) else []
+        # 차 흐름은 광류로(검출이 느려 궤적이 끊겨도 됨), 횡단보도는 사람 궤적으로
+        boxes = S[np.isin(S[:, 7], (2, 5, 7)) & (S[:, 6] > 0.4), 2:6] if len(S) else None
+        g = [L for L in self.src.acc.propose(self.src.fps, boxes) if not L.get("minor")] if self.src.acc is not None else []
+        if len(S): g += [L for L in autogate.propose(S, self.src.fps, self.src.W, self.src.H, min_tracks=6) if L["target"] == "person"]
         if not any(L["target"] == "vehicle" for L in g):   # 아직 흐름을 못 찾음 → 1분 더 봄
             self.warm_t0 = time.time() - self.warmup + 60; return
         AR = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"]
@@ -103,7 +113,7 @@ class Counter(threading.Thread):
         for L in g:
             if L["target"] == "person": L["show"] = "횡단보도"; continue
             k += 1; u = L["auto"]["u"]; L["show"] = f"{AR[int(round(math.degrees(math.atan2(u[1], u[0])) / 45)) % 8]} 차 흐름 {k}"
-        self.set_gates(g)
+        self.src.acc = None; self.set_gates(g)
     def detect(self, f):
         d = self.m.predict(Image.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB)), threshold=self.conf)
         keep = [i for i, c in enumerate(d.class_id) if int(c) in COCO]
