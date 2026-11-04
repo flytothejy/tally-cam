@@ -164,7 +164,7 @@ class Screen:
         img = Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB"); d = ImageDraw.Draw(img)
         d.ellipse((self.PX - z(250), self.TOP // 2 - z(7), self.PX - z(236), self.TOP // 2 + z(7)), fill=(255, 60, 60) if int(now * 2) % 2 == 0 else (120, 30, 30))
         d.text((self.PX - z(226), self.TOP // 2), "LIVE", font=F["small"], fill=(255, 110, 110), anchor="lm")
-        d.text((W - z(24), self.TOP // 2), dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), font=F["clock"], fill=TXT, anchor="rm")
+        d.text((W - z(24), self.TOP // 2), dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M:%S"), font=F["clock"], fill=TXT, anchor="rm")
         d.text((self.PX - z(24), self.TOP // 2), fps_info, font=F["tiny"], fill=SUB, anchor="rm")
         for i, L in enumerate(self.lines):
             y = self.CY + i * (self.CH + self.CG); mine = [e for e in events if e["line"] == L["name"]]; n = len(mine)
